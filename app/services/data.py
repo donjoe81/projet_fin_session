@@ -2,7 +2,7 @@ import pandas as pd
 from pandas import DataFrame
 from pathlib import Path
 root=Path(__file__).resolve().parents[2]
-csv_file=root/'dataset'/'train.csv'
+csv_file=root/'dataset'/'WA_Fn-UseC_-Telco-Customer-Churn.csv'
 df=pd.read_csv(csv_file)
 
 class MyDataFrame:
@@ -16,7 +16,6 @@ class MyDataFrame:
 
     def __init__(self):
         if not hasattr(self, "_initialized"):
-            print(21212121)
             self._df = pd.read_csv(csv_file)
             self._initialized = True
 

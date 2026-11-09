@@ -42,7 +42,7 @@ def get_infos_columns():
                 ],
                 "values": frequencies.tolist()
             }
-
+            
             columns.append(InfoNumericColumn(str(df[column].dtype), column, infos['count'],
                                               infos['mean'], infos['std'], infos['min'], infos['25%'],
                                                 infos['50%'], infos['75%'], infos['max'], distribution))
@@ -66,6 +66,5 @@ def get_infos_columns():
                     "frequency": int(frequency),
                     "percentage": round(percentage, 2)
                 })
-
             columns.append(InfoCathColumn(str(df[column].dtype), column, infos['count'], infos['unique'], infos['top'],infos['freq'], distribution_data))
     return columns

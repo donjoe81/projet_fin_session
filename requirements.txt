@@ -9,3 +9,5 @@ scipy>=1.11.0
 python-dotenv>=1.0.1
 requests>=2.32.0
 fg-data-profiling # require python 3.14
+statsmodels
+scikit-learn

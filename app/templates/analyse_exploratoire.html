@@ -7,11 +7,7 @@
 
 {% block content %}
 
-    <h1>Analyse</h1>
     <div class="container-fluid mt-4">
-
-        <h3 class="mb-4">Analyse des variables numériques</h3>
-
         <!-- Sélection de la variable -->
         <div class="row mb-4">
             <div class="col-md-6 col-lg-4">
@@ -30,121 +26,171 @@
                 </select>
             </div>
         </div>
-        <div class="row g-4" id="columnsContainer">
-            <!-- Affichage des statistiques -->
-            <div class=class="col-6 col-lg-6" id="columnsContainer">
-                {% for col in infos_columns %}
-                <div class="col-12 col-md-6 col-xl-4 column-card"
+        <div class="row g-4" id="columnsContainer" style="display: none;">
+
+        <!-- COLONNE DES STATISTIQUES -->
+        <div class="col-12 col-md-6" id="statisticsContainer">
+
+            {% for col in infos_columns %}
+
+                <div class="column-card"
                     data-index="{{ loop.index0 }}"
+                    data-type="{{ col.type }}"
+                    data-distribution='{{ col.distribution | tojson }}'
                     style="display: none;">
 
                     <div class="card numeric-card h-100">
 
                         <div class="card-header numeric-card-header">
+
                             <span class="badge bg-primary mb-2">
                                 {{ col.type }}
                             </span>
 
                             <h5 class="mb-0">{{ col.name }}</h5>
+
                         </div>
 
                         <div class="card-body">
 
-                            <div class="stat-main">
-                                <span class="stat-label">Moyenne</span>
-                                <h2>
-                                    {{ "%.2f"|format(col.mean) if col.mean is not none else "N/A" }}
-                                </h2>
-                            </div>
+                            {% if col.type in ['float64', 'int64'] %}
 
-                            <hr>
+                                <div class="stat-main">
+                                    <span class="stat-label">Moyenne</span>
+                                    <h2>
+                                        {{ "%.2f"|format(col.mean) if col.mean is not none else "N/A" }}
+                                    </h2>
+                                </div>
 
-                            <div class="row g-3">
+                                <hr>
 
-                                <div class="col-6">
-                                    <div class="stat-item">
-                                        <span>Nombre de valeurs</span>
-                                        <strong>{{ col.count }}</strong>
+                                <div class="row g-3">
+
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Nombre de valeurs</span>
+                                            <strong>{{ col.count }}</strong>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="col-6">
-                                    <div class="stat-item">
-                                        <span>Écart-type</span>
-                                        <strong>
-                                            {{ "%.2f"|format(col.std) if col.std is not none else "N/A" }}
-                                        </strong>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Écart-type</span>
+                                            <strong>{{ "%.2f"|format(col.std) if col.std is not none else "N/A" }}</strong>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="col-6">
-                                    <div class="stat-item">
-                                        <span>Minimum</span>
-                                        <strong>{{ col.min }}</strong>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Minimum</span>
+                                            <strong>{{ col.min }}</strong>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="col-6">
-                                    <div class="stat-item">
-                                        <span>Maximum</span>
-                                        <strong>{{ col.max }}</strong>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Maximum</span>
+                                            <strong>{{ col.max }}</strong>
+                                        </div>
                                     </div>
+
                                 </div>
 
-                            </div>
+                                <hr>
 
-                            <hr>
+                                <h6 class="quartile-title">Distribution des données</h6>
 
-                            <h6 class="quartile-title">
-                                Distribution des données
-                            </h6>
+                                <div class="quartile-list">
 
-                            <div class="quartile-list">
+                                    <div class="quartile-item">
+                                        <span>Q1 (25%)</span>
+                                        <strong>{{ col.Q1 }}</strong>
+                                    </div>
 
-                                <div class="quartile-item">
-                                    <span>Q1 (25%)</span>
-                                    <strong>{{ col.Q1 }}</strong>
+                                    <div class="quartile-item">
+                                        <span>Q2 (Médiane)</span>
+                                        <strong>{{ col.Q2 }}</strong>
+                                    </div>
+
+                                    <div class="quartile-item">
+                                        <span>Q3 (75%)</span>
+                                        <strong>{{ col.Q3 }}</strong>
+                                    </div>
+
                                 </div>
 
-                                <div class="quartile-item">
-                                    <span>Q2 (Médiane)</span>
-                                    <strong>{{ col.Q2 }}</strong>
+                            {% elif col.type in ['object', 'category'] %}
+
+                                <div class="stat-main">
+                                    <span class="stat-label">Valeur la plus fréquente</span>
+                                    <h2>
+                                        {{ col.top if col.top is not none else "N/A" }}
+                                    </h2>
                                 </div>
 
-                                <div class="quartile-item">
-                                    <span>Q3 (75%)</span>
-                                    <strong>{{ col.Q3 }}</strong>
+                                <hr>
+
+                                <div class="row g-3">
+
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Nombre de valeurs</span>
+                                            <strong>{{ col.count }}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Valeurs uniques</span>
+                                            <strong>{{ col.unique }}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <span>Fréquence dominante</span>
+                                            <strong>{{ col.freq }}</strong>
+                                        </div>
+                                    </div>
+
                                 </div>
 
-                            </div>
+                            {% endif %}
 
                         </div>
                     </div>
                 </div>
 
-                {% endfor %}
+            {% endfor %}
 
-            </div>
-
-            <!-- Graphique -->
-            <div class="col-6 col-lg-6">
-                <div class="card numeric-card h-100">
-                    <div class="card-header numeric-card-header">
-                        <h5 class="mb-0">Distribution de la variable</h5>
-                    </div>
-
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="distributionChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <div id="emptyMessage" class="alert alert-info mt-3">
-            Veuillez sélectionner une variable pour afficher ses statistiques.
+        <!-- COLONNE DU GRAPHIQUE -->
+        <div class="col-12 col-md-6" id="chartContainer">
+
+            <div class="card numeric-card h-100">
+
+                <div class="card-header numeric-card-header">
+                    <h5 class="mb-0">Distribution de la variable</h5>
+                </div>
+
+                <div class="card-body">
+
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
 
     </div>
+    </div>
 {% endblock %}
+
+{% block script %}
+    <script src="{{ url_for('static', filename='js/analyse_exploratoire.js') }}"></script>
+{% endblock script %}
+

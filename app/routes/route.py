@@ -4,6 +4,7 @@ from app.services.ydata_profiling_service import (
     generate_profiling_report,
     REPORTS_DIR
 )
+from app.services.data_correlation_service import get_significant_relationships
 main_bp=Blueprint('main',__name__)
 
 @main_bp.route('/')
@@ -48,3 +49,7 @@ def afficher_rapport():
 def analyse_exploratoire():
 
     return render_template('analyse_exploratoire.html', infos_columns = get_infos_columns())
+
+@main_bp.route('/correlation_vars')
+def correlation_vars():
+    return render_template('correlation_vars.html', corr_vars = get_significant_relationships())

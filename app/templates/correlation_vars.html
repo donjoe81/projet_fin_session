@@ -1,0 +1,241 @@
+
+{% extends "base.html" %}
+
+{% block title %}Analyse des corrélations{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold">
+                <i class="bi bi-diagram-3"></i>
+                Analyse des corrélations
+            </h2>
+            <p class="text-muted">
+                Analyse des relations statistiques entre les variables du dataset.
+            </p>
+        </div>
+        <span class="badge bg-primary fs-6">
+            Analyse statistique
+        </span>
+    </div>
+
+    <!-- Indicateurs -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <p class="text-muted mb-1">Relations détectées</p>
+                    <h3 id="totalRelations" class="fw-bold">
+                        {{ corr_vars|length }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <p class="text-muted mb-1">Relations significatives</p>
+                    <h3 id="significantRelations" class="fw-bold text-success">
+                        {{ corr_vars|length }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <p class="text-muted mb-1">Relations fortes</p>
+                    <h3 id="strongRelations" class="fw-bold text-primary">0</h3>
+                    <small class="text-muted">Taille d'effet ≥ 0.50</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <p class="text-muted mb-1">Types de relations</p>
+                    <h3 id="relationshipTypes" class="fw-bold">0</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Graphique -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Distribution des relations par type</h5>
+        </div>
+        <div class="card-body">
+            <div style="max-width: 600px; margin:auto; height:300px">
+                <canvas id="correlationChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Filtres de recherche</h5>
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <label class="form-label">Type de relation</label>
+                    <select id="filterRelationship" class="form-select">
+                        <option value="">Tous les types</option>
+                        <option value="Numeric-Numeric">Numérique - Numérique</option>
+                        <option value="Categorical-Numeric">Catégorielle - Numérique</option>
+                        <option value="Categorical-Categorical">Catégorielle - Catégorielle</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Test statistique</label>
+                    <select id="filterTest" class="form-select">
+                        <option value="">Tous les tests</option>
+                        <option value="Pearson">Pearson</option>
+                        <option value="Spearman">Spearman</option>
+                        <option value="ANOVA">ANOVA</option>
+                        <option value="Kruskal-Wallis">Kruskal-Wallis</option>
+                        <option value="Chi-square">Chi-square</option>
+                        <option value="Fisher Exact">Fisher Exact</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Force de la relation</label>
+                    <select id="filterStrength" class="form-select">
+                        <option value="">Toutes</option>
+                        <option value="weak">Faible (0.10 - 0.29)</option>
+                        <option value="moderate">Modérée (0.30 - 0.49)</option>
+                        <option value="strong">Forte (≥ 0.50)</option>
+                    </select>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Résultats des associations statistiques</h5>
+        </div>
+
+        <div class="card-body">
+
+            <div class="table-responsive">
+                <table id="correlationTable"
+                       class="table table-hover table-striped align-middle">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th>Variable 1</th>
+                            <th>Variable 2</th>
+                            <th>Type de relation</th>
+                            <th>Test</th>
+                            <th>Statistique</th>
+                            <th>Taille d'effet</th>
+                            <th>P-value ajustée</th>
+                            <th>Observations</th>
+                            <th>Force</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                    {% for row in corr_vars.to_dict('records') %}
+
+                        <tr
+                            data-relationship="{{ row.Relationship }}"
+                            data-test="{{ row.Test }}"
+                            data-effect="{{ row.Effect_Size if row.Effect_Size is not none else 0 }}"
+                        >
+
+                            <td class="fw-semibold">
+                                {{ row.Variable_1 }}
+                            </td>
+
+                            <td class="fw-semibold">
+                                {{ row.Variable_2 }}
+                            </td>
+
+                            <td data-search="{{ row.Relationship }}">
+                                {% if row.Relationship == 'Numeric-Numeric' %}
+                                    <span class="badge bg-primary">
+                                        Numérique - Numérique
+                                    </span>
+                                {% elif row.Relationship == 'Categorical-Numeric' %}
+                                    <span class="badge bg-info text-dark">
+                                        Catégorielle - Numérique
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        Catégorielle - Catégorielle
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td data-search="{{ row.Test }}">
+                                {{ row.Test }}
+                            </td>
+
+                            <td>
+                                {{ "%.4f"|format(row.Statistic) if row.Statistic is not none else '-' }}
+                            </td>
+
+                            <td>
+                                {{ "%.4f"|format(row.Effect_Size) if row.Effect_Size is not none else '-' }}
+                            </td>
+
+                            <td>
+                                <span class="text-success fw-semibold">
+                                    {{ "%.3e"|format(row.P_adjusted) }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ row.N }}
+                            </td>
+
+                            <td>
+                                {% if row.Effect_Size is not none and row.Effect_Size >= 0.50 %}
+                                    <span class="badge bg-success">Forte</span>
+                                {% elif row.Effect_Size is not none and row.Effect_Size >= 0.30 %}
+                                    <span class="badge bg-warning text-dark">Modérée</span>
+                                {% elif row.Effect_Size is not none and row.Effect_Size >= 0.10 %}
+                                    <span class="badge bg-secondary">Faible</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Très faible</span>
+                                {% endif %}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+{% block script %}
+    <script src="{{ url_for('static', filename='js/correlation_vars.js') }}"></script>
+{% endblock script %}
+
