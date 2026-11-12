@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Telco — Validation du modèle{% endblock %}
+
+{% block content %}
+<div class="py-4">
+
+    <a href="{{ url_for('main.home') }}"
+       class="btn btn-outline-secondary mb-4">
+        Retour au dashboard
+    </a>
+
+    <h1 class="fw-bold">Validation du modèle</h1>
+
+    <p class="text-muted">
+        Régression logistique utilisant l’ancienneté,
+        le montant mensuel et le type de contrat.
+        Cette évaluation porte sur l’ensemble de validation,
+        indépendamment du filtre du dashboard.
+    </p>
+
+    <div class="row g-3 my-3">
+        {% for label, value in [
+            ("Clients d’entraînement", report.train_size),
+            ("Clients de validation", report.validation_size),
+            ("Clients de test réservés", report.test_size)
+        ] %}
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 bg-light">
+                <div class="card-body">
+                    <h2 class="h6 text-muted">{{ label }}</h2>
+                    <p class="display-6 mb-0">{{ value }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <section class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h4">Comparaison avec la référence</h2>
+
+            <p class="text-muted">
+                La référence prédit toujours la classe majoritaire :
+                absence de départ. Le seuil du modèle est fixé à
+                {{ report.threshold }}.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Mesure</th>
+                            <th scope="col">Référence</th>
+                            <th scope="col">Régression logistique</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for key, label in [
+                            ("accuracy", "Exactitude"),
+                            ("precision", "Précision des alertes"),
+                            ("recall", "Rappel des départs")
+                        ] %}
+                        <tr>
+                            <th scope="row">{{ label }}</th>
+                            <td>
+                                {{ ("%.1f"|format(
+                                    report.baseline[key] * 100
+                                )).replace(".", ",") }} %
+                            </td>
+                            <td>
+                                {{ ("%.1f"|format(
+                                    report.model[key] * 100
+                                )).replace(".", ",") }} %
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        {% for key, label in [
+                            ("f1", "Score F1"),
+                            ("roc_auc", "Aire sous la courbe ROC")
+                        ] %}
+                        <tr>
+                            <th scope="row">{{ label }}</th>
+                            <td>
+                                {{ ("%.3f"|format(
+                                    report.baseline[key]
+                                )).replace(".", ",") }}
+                            </td>
+                            <td>
+                                {{ ("%.3f"|format(
+                                    report.model[key]
+                                )).replace(".", ",") }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="small text-muted">
+                La référence ne produit aucune alerte de départ :
+                sa précision est indéfinie, affichée à 0 par convention.
+            </p>
+        </div>
+    </section>
+
+    {% set matrix = report.model.confusion_matrix %}
+
+    <section class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h4">Matrice de confusion du modèle</h2>
+
+            <p class="text-muted">
+                Les lignes indiquent la réalité observée ;
+                les colonnes indiquent la prédiction au seuil choisi.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-bordered text-center align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Observation / Prédiction</th>
+                            <th scope="col">Absence de départ</th>
+                            <th scope="col">Départ</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr>
+                            <th scope="row">Absence de départ observée</th>
+                            <td class="table-success">
+                                {{ matrix[0][0] }}
+                                <div class="small">Vrais négatifs</div>
+                            </td>
+                            <td class="table-warning">
+                                {{ matrix[0][1] }}
+                                <div class="small">Fausses alertes</div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">Départ observé</th>
+                            <td class="table-danger">
+                                {{ matrix[1][0] }}
+                                <div class="small">Départs non détectés</div>
+                            </td>
+                            <td class="table-success">
+                                {{ matrix[1][1] }}
+                                <div class="small">Départs détectés</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="alert alert-primary mt-4">
+        <h2 class="h6">Comment lire les mesures ?</h2>
+
+        <ul class="mb-0">
+            <li>
+                <strong>Exactitude :</strong>
+                proportion de prédictions correctes.
+            </li>
+            <li>
+                <strong>Précision :</strong>
+                parmi les alertes de départ, proportion de départs observés.
+            </li>
+            <li>
+                <strong>Rappel :</strong>
+                parmi les départs observés, proportion détectée.
+            </li>
+            <li>
+                <strong>F1 :</strong>
+                moyenne harmonique de la précision et du rappel.
+            </li>
+            <li>
+                <strong>Aire ROC :</strong>
+                mesure du classement des clients par le score,
+                calculée à partir des probabilités.
+            </li>
+        </ul>
+    </section>
+
+    <p class="small text-muted">
+        Données pédagogiques fictives. Les clients de test n’ont pas
+        encore été évalués. Les résultats présentés ne démontrent pas
+        l’efficacité d’une action commerciale ni la fiabilité du modèle
+        chez un opérateur réel.
+    </p>
+
+</div>
+{% endblock %}

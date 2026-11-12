@@ -21,6 +21,8 @@ from app.services.dashboard_service import (
     get_tenure_distribution,
 )
 
+from app.services.model_service import get_validation_report
+
 @main_bp.route("/")
 def home():
     contract = request.args.get("contract", "").strip()
@@ -92,3 +94,10 @@ def analyse_exploratoire():
 @main_bp.route('/correlation_vars')
 def correlation_vars():
     return render_template('correlation_vars.html', corr_vars = get_significant_relationships())
+
+@main_bp.route("/validation")
+def model_validation():
+    return render_template(
+        "model_validation.html",
+        report=get_validation_report(),
+    )
