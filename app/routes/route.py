@@ -7,9 +7,19 @@ from app.services.ydata_profiling_service import (
 from app.services.data_correlation_service import get_significant_relationships
 main_bp=Blueprint('main',__name__)
 
-@main_bp.route('/')
+
+from app.services.dashboard_service import (
+    get_dashboard_summary,
+    get_churn_by_contract,
+)
+
+@main_bp.route("/")
 def home():
-    return render_template('index.html')
+    return render_template(
+        "index.html",
+        summary=get_dashboard_summary(),
+        contracts=get_churn_by_contract(),
+    )
 
 
 @main_bp.route("/profiling")
@@ -21,6 +31,12 @@ def profiling():
         return render_template(
             "profiling.html"
         )
+
+    except ImportError:
+        return render_template(
+            "profiling.html",
+            erreur="Le module de profilage optionnel n’est pas installé."
+        ), 503
 
     except Exception:
         current_app.logger.exception(

@@ -1,15 +1,211 @@
-
 {% extends "base.html" %}
 
-{% block title %}
-Accueil
-{% endblock %}
+{% block title %}Dashboard — Départs clients{% endblock %}
 
 {% block content %}
+<div class="py-4">
 
-<h1>Bienvenue sur mon site !</h1>
+    <h1 class="fw-bold">Suivi des départs clients</h1>
+    <p class="text-muted">
+        Vue d’ensemble du portefeuille et des départs observés.
+        Données pédagogiques d’une entreprise télécom fictive.
+    </p>
 
-<h1>Bienvenue dans votre projet Flask</h1>
-<p>Page d'accueil opérationnelle.</p>
+    <!-- Indicateurs principaux -->
+    <div class="row g-3 my-3">
 
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-muted">Clients observés</h2>
+                    <p class="display-6 mb-0">
+                        {{ summary.total_clients }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-muted">Départs observés</h2>
+                    <p class="display-6 mb-0">
+                        {{ summary.departures }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-muted">Proportion de départs</h2>
+                    <p class="display-6 mb-0">
+                        {{ "%.1f"|format(summary.churn_rate * 100) }} %
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-muted">Ancienneté médiane</h2>
+                    <p class="display-6 mb-0">
+                        {{ "%.0f"|format(summary.median_tenure) }}
+                        <small class="fs-6">mois</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <section class="card shadow-sm mt-4">
+    <div class="card-body">
+        <h2 class="h4">Proportion de départs par contrat</h2>
+
+        <div style="position: relative; height: 320px;">
+            <canvas
+                id="contractChart"
+                role="img"
+                aria-label="Proportion de départs par contrat.
+                            Les valeurs sont détaillées dans le tableau suivant.">
+            </canvas>
+        </div>
+    </div>
+    </section>
+
+    <!-- Comparaison des contrats -->
+    <section class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h4">Départs selon le contrat</h2>
+            <p class="text-muted">
+                Pour chaque contrat, la proportion est calculée
+                parmi les clients ayant ce type de contrat.
+            </p>
+
+            {% set contract_labels = {
+                "Month-to-month": "Mensuel",
+                "One year": "Un an",
+                "Two year": "Deux ans"
+            } %}
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Contrat</th>
+                            <th scope="col">Clients</th>
+                            <th scope="col">Départs</th>
+                            <th scope="col">Proportion de départs</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for row in contracts %}
+                        <tr>
+                            <th scope="row">
+                                {{ contract_labels.get(
+                                    row.Contract, row.Contract
+                                ) }}
+                            </th>
+                            <td>{{ row.total_clients }}</td>
+                            <td>{{ row.departures }}</td>
+                            <td>
+                                {{ "%.1f"|format(
+                                    row.churn_rate * 100
+                                ) }} %
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="small text-muted mb-0">
+                Ces comparaisons décrivent des associations.
+                Elles ne démontrent pas qu’un changement de contrat
+                provoquerait une diminution des départs.
+            </p>
+        </div>
+    </section>
+
+    <section class="alert alert-light border mt-4">
+        <h2 class="h6">Qualité des données</h2>
+        <p class="mb-0">
+            {{ summary.missing_total_charges }} montants cumulés
+            sont manquants. Les clients concernés restent inclus
+            dans les effectifs et les proportions de départs.
+        </p>
+    </section>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    const contracts = {{ contracts | tojson }};
+
+    const contractLabels = {
+        "Month-to-month": "Mensuel",
+        "One year": "Un an",
+        "Two year": "Deux ans"
+    };
+
+    const percentFormat = new Intl.NumberFormat("fr-FR", {
+        style: "percent",
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    });
+
+    new Chart(document.getElementById("contractChart"), {
+        type: "bar",
+        data: {
+            labels: contracts.map(
+                row => contractLabels[row.Contract] || row.Contract
+            ),
+            datasets: [{
+                label: "Proportion de départs",
+                data: contracts.map(row => row.churn_rate),
+                backgroundColor: "#2563eb",
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 1,
+                    title: {
+                        display: true,
+                        text: "Clients ayant quitté l’entreprise (%)"
+                    },
+                    ticks: {
+                        callback: value => percentFormat.format(value)
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: context => {
+                            const row = contracts[context.dataIndex];
+
+                            return [
+                                `Départs : ${percentFormat.format(row.churn_rate)}`,
+                                `${row.departures} sur ${row.total_clients} clients`
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

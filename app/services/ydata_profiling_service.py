@@ -3,7 +3,7 @@ from app.services.data import MyDataFrame
 from pathlib import Path
 
 import pandas as pd
-from ydata_profiling import ProfileReport
+
 
 
 # Chemin racine du projet
@@ -19,6 +19,7 @@ def generate_profiling_report() -> Path:
     """
     Génère un rapport YData Profiling au format HTML.
     """
+    from ydata_profiling import ProfileReport
 
     # Charger les données
     df = MyDataFrame().getMyDataFrame()
