@@ -19,6 +19,7 @@
         indépendamment du filtre du dashboard.
     </p>
 
+    <!-- Effectifs -->
     <div class="row g-3 my-3">
         {% for label, value in [
             ("Clients d’entraînement", report.train_size),
@@ -36,6 +37,7 @@
         {% endfor %}
     </div>
 
+    <!-- Comparaison avec la référence -->
     <section class="card shadow-sm mt-4">
         <div class="card-body">
             <h2 class="h4">Comparaison avec la référence</h2>
@@ -43,7 +45,7 @@
             <p class="text-muted">
                 La référence prédit toujours la classe majoritaire :
                 absence de départ. Le seuil du modèle est fixé à
-                {{ report.threshold }}.
+                {{ ("%.2f"|format(report.threshold)).replace(".", ",") }}.
             </p>
 
             <div class="table-responsive">
@@ -99,13 +101,95 @@
                 </table>
             </div>
 
-            <p class="small text-muted">
+            <p class="small text-muted mb-0">
                 La référence ne produit aucune alerte de départ :
                 sa précision est indéfinie, affichée à 0 par convention.
             </p>
         </div>
     </section>
 
+    <!-- Comparaison des seuils -->
+    <section class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h4">Comparer les seuils de décision</h2>
+
+            <p class="text-muted">
+                Comparaison sur les mêmes clients de validation.
+                Le modèle reste identique : seul le seuil d’alerte change.
+                Une alerte est produite lorsque le score est supérieur
+                ou égal au seuil.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Seuil</th>
+                            <th scope="col">Alertes</th>
+                            <th scope="col">Précision</th>
+                            <th scope="col">Rappel</th>
+                            <th scope="col">F1</th>
+                            <th scope="col">Fausses alertes</th>
+                            <th scope="col">Départs non détectés</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for row in report.threshold_comparison %}
+                        <tr
+                            {% if row.threshold == report.threshold %}
+                            class="table-primary"
+                            {% endif %}
+                        >
+                            <th scope="row">
+                                {{ ("%.2f"|format(
+                                    row.threshold
+                                )).replace(".", ",") }}
+                            </th>
+
+                            <td>{{ row.alerts }}</td>
+
+                            <td>
+                                {{ ("%.1f"|format(
+                                    row.precision * 100
+                                )).replace(".", ",") }} %
+                            </td>
+
+                            <td>
+                                {{ ("%.1f"|format(
+                                    row.recall * 100
+                                )).replace(".", ",") }} %
+                            </td>
+
+                            <td>
+                                {{ ("%.3f"|format(
+                                    row.f1
+                                )).replace(".", ",") }}
+                            </td>
+
+                            <td>{{ row.false_positives }}</td>
+                            <td>{{ row.false_negatives }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="small text-muted">
+                Lorsqu’aucune alerte n’est produite, la précision
+                est indéfinie et affichée à 0 par convention.
+            </p>
+
+            <p class="small text-muted mb-0">
+                La ligne bleue correspond au seuil actuellement utilisé.
+                Le choix final dépendra du nombre de clients que le
+                responsable peut contacter et du coût des erreurs.
+                Aucun résultat du test réservé n’est utilisé ici.
+            </p>
+        </div>
+    </section>
+
+    <!-- Matrice de confusion -->
     {% set matrix = report.model.confusion_matrix %}
 
     <section class="card shadow-sm mt-4">
@@ -114,7 +198,8 @@
 
             <p class="text-muted">
                 Les lignes indiquent la réalité observée ;
-                les colonnes indiquent la prédiction au seuil choisi.
+                les colonnes indiquent la prédiction au seuil de
+                {{ ("%.2f"|format(report.threshold)).replace(".", ",") }}.
             </p>
 
             <div class="table-responsive">
@@ -130,10 +215,12 @@
                     <tbody>
                         <tr>
                             <th scope="row">Absence de départ observée</th>
+
                             <td class="table-success">
                                 {{ matrix[0][0] }}
                                 <div class="small">Vrais négatifs</div>
                             </td>
+
                             <td class="table-warning">
                                 {{ matrix[0][1] }}
                                 <div class="small">Fausses alertes</div>
@@ -142,10 +229,12 @@
 
                         <tr>
                             <th scope="row">Départ observé</th>
+
                             <td class="table-danger">
                                 {{ matrix[1][0] }}
                                 <div class="small">Départs non détectés</div>
                             </td>
+
                             <td class="table-success">
                                 {{ matrix[1][1] }}
                                 <div class="small">Départs détectés</div>
@@ -157,6 +246,7 @@
         </div>
     </section>
 
+    <!-- Aide à la lecture -->
     <section class="alert alert-primary mt-4">
         <h2 class="h6">Comment lire les mesures ?</h2>
 
@@ -181,6 +271,7 @@
                 <strong>Aire ROC :</strong>
                 mesure du classement des clients par le score,
                 calculée à partir des probabilités.
+                Elle ne dépend pas du seuil d’alerte sélectionné.
             </li>
         </ul>
     </section>

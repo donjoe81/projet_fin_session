@@ -128,6 +128,35 @@ def train_model():
         ),
     }
 
+
+
+    threshold_comparison = []
+
+    for threshold in [0.20, 0.35, 0.50, 0.65, 0.80]:
+        threshold_predictions = (
+            probabilities >= threshold
+        ).astype(int)
+
+        scores = compute_metrics(
+            y_val,
+            threshold_predictions,
+            probabilities,
+        )
+
+        matrix = scores["confusion_matrix"]
+
+        threshold_comparison.append({
+            "threshold": threshold,
+            "precision": scores["precision"],
+            "recall": scores["recall"],
+            "f1": scores["f1"],
+            "false_positives": matrix[0][1],
+            "false_negatives": matrix[1][0],
+            "alerts": int(threshold_predictions.sum()),
+        })
+
+    report["threshold_comparison"] = threshold_comparison
+
     # Les clients de test sont conservés sans être évalués ici.
     return model, report, X_test, y_test
 
