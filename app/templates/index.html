@@ -449,6 +449,29 @@
         </p>
     </section>
 
+    <section class="panel">
+    <h2>Ancienneté des clients</h2>
+
+    <p class="muted">
+        Effectifs par tranche d’ancienneté, dans le périmètre sélectionné.
+    </p>
+
+    <div class="chart-container">
+        <canvas
+            id="tenureChart"
+            role="img"
+            aria-label="Effectifs des clients partis et sans départ observé,
+                        par tranche d’ancienneté.">
+        </canvas>
+    </div>
+
+    <p class="muted mt-3 mb-0">
+        Les barres représentent des nombres de clients,
+        pas des proportions de départs. La dernière tranche
+        comprend les anciennetés de 60 à 72 mois.
+    </p>
+</section>
+
     <!-- Qualité -->
     <section class="panel quality">
         <div class="quality-icon" aria-hidden="true">i</div>
@@ -574,6 +597,71 @@
                             ];
                         }
                     }
+                }
+            }
+        }
+    });
+</script>
+<script id="tenure-data" type="application/json">
+    {{ tenure_distribution | tojson }}
+</script>
+
+<script>
+    const tenureData = JSON.parse(
+        document.getElementById("tenure-data").textContent
+    );
+
+    new Chart(document.getElementById("tenureChart"), {
+        type: "bar",
+
+        data: {
+            labels: tenureData.map(row => row.label),
+
+            datasets: [
+                {
+                    label: "Sans départ observé",
+                    data: tenureData.map(row => row.remaining),
+                    backgroundColor: "#2563eb",
+                    borderRadius: 4
+                },
+                {
+                    label: "Départ observé",
+                    data: tenureData.map(row => row.departures),
+                    backgroundColor: "#e11d48",
+                    borderRadius: 4
+                }
+            ]
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: "Ancienneté"
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: "Nombre de clients"
+                    },
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            },
+
+            plugins: {
+                legend: {
+                    position: "bottom"
                 }
             }
         }

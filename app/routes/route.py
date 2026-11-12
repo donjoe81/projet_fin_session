@@ -14,6 +14,13 @@ from app.services.dashboard_service import (
 )
 from flask import request, abort
 
+
+from app.services.dashboard_service import (
+    get_dashboard_summary,
+    get_churn_by_contract,
+    get_tenure_distribution,
+)
+
 @main_bp.route("/")
 def home():
     contract = request.args.get("contract", "").strip()
@@ -34,6 +41,7 @@ def home():
         summary=get_dashboard_summary(selected_contract),
         contracts=get_churn_by_contract(selected_contract),
         selected_contract=contract,
+        tenure_distribution=get_tenure_distribution(selected_contract),
     )
 
 

@@ -59,3 +59,30 @@ def get_churn_by_contract(contract=None):
     )
 
     return results.to_dict(orient="records")
+
+
+
+def get_tenure_distribution(contract=None):
+    df = filter_clients(contract)
+
+    intervals = [
+        (0, 11),
+        (12, 23),
+        (24, 35),
+        (36, 47),
+        (48, 59),
+        (60, 72),
+    ]
+
+    results = []
+
+    for lower, upper in intervals:
+        group = df.loc[df["tenure"].between(lower, upper)]
+
+        results.append({
+            "label": f"{lower}–{upper} mois",
+            "remaining": int(group["Churn"].eq("No").sum()),
+            "departures": int(group["Churn"].eq("Yes").sum()),
+        })
+
+    return results
