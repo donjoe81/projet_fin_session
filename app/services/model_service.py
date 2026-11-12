@@ -19,8 +19,10 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from app.services.data import get_data_frame
 
 
-SEED = 5103
 
+SEED = 5103
+FINAL_THRESHOLD = 0.35
+CONTACT_CAPACITY_RATE = 0.35
 NUMERIC_FEATURES = ["tenure", "MonthlyCharges"]
 CATEGORICAL_FEATURES = ["Contract"]
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
@@ -195,3 +197,45 @@ def train_model():
 
 def get_validation_report():
     return train_model()[1]
+
+
+@lru_cache(maxsize=1)
+def get_test_report():
+    model, _, X_test, y_test = train_model()
+
+    probabilities = model.predict_proba(X_test)[:, 1]
+
+    predictions = (
+        probabilities >= FINAL_THRESHOLD
+    ).astype(int)
+
+    # Référence fixée : prédire l'absence de départ pour tous.
+    baseline_predictions = [0] * len(y_test)
+    baseline_probabilities = [0.0] * len(y_test)
+
+    alerts = int(predictions.sum())
+    max_contacts = int(len(y_test) * CONTACT_CAPACITY_RATE)
+
+    return {
+        "dataset": "Test final réservé",
+        "test_size": len(y_test),
+        "threshold": FINAL_THRESHOLD,
+        "model": compute_metrics(
+            y_test,
+            predictions,
+            probabilities,
+        ),
+        "baseline": compute_metrics(
+            y_test,
+            baseline_predictions,
+            baseline_probabilities,
+        ),
+        "alerts": alerts,
+        "contact_rate": alerts / len(y_test),
+        "capacity_rate": CONTACT_CAPACITY_RATE,
+        "max_contacts": max_contacts,
+        "capacity_respected": alerts <= max_contacts,
+    }
+
+
+

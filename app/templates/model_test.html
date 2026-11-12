@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Telco — Test final{% endblock %}
+
+{% block content %}
+<div class="py-4">
+
+    <a href="{{ url_for('main.model_validation') }}"
+       class="btn btn-outline-secondary mb-4">
+        Retour à la validation
+    </a>
+
+    <h1 class="fw-bold">Évaluation finale sur le test</h1>
+
+    <p class="text-muted">
+        Évaluation sur {{ report.test_size }} clients réservés.
+        Le modèle et le seuil ont été fixés avant de consulter
+        les résultats de ce groupe.
+    </p>
+
+    <div class="row g-3 my-3">
+
+        <div class="col-md-4">
+            <div class="card bg-light h-100">
+                <div class="card-body">
+                    <h2 class="h6">Seuil fixé</h2>
+                    <p class="display-6 mb-0">
+                        {{ ("%.2f"|format(
+                            report.threshold
+                        )).replace(".", ",") }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card bg-light h-100">
+                <div class="card-body">
+                    <h2 class="h6">Alertes produites</h2>
+                    <p class="display-6 mb-0">
+                        {{ report.alerts }}
+                    </p>
+                    <p class="small text-muted mb-0">
+                        {{ ("%.1f"|format(
+                            report.contact_rate * 100
+                        )).replace(".", ",") }} % des clients du test
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100
+                {% if report.capacity_respected %}
+                border-success
+                {% else %}
+                border-danger
+                {% endif %}">
+                <div class="card-body">
+                    <h2 class="h6">Capacité de contact</h2>
+
+                    <p class="fs-4 fw-bold">
+                        {% if report.capacity_respected %}
+                            Respectée sur ce test
+                        {% else %}
+                            Dépassée sur ce test
+                        {% endif %}
+                    </p>
+
+                    <p class="small text-muted mb-0">
+                        Maximum :
+                        {{ report.max_contacts }} clients,
+                        soit {{ "%.0f"|format(
+                            report.capacity_rate * 100
+                        ) }} % du groupe, arrondi à l’entier inférieur.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <section class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h4">Performances sur le test</h2>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Mesure</th>
+                            <th scope="col">Référence constante</th>
+                            <th scope="col">Régression logistique</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for key, label in [
+                            ("accuracy", "Exactitude"),
+                            ("precision", "Précision des alertes"),
+                            ("recall", "Rappel des départs")
+                        ] %}
+                        <tr>
+                            <th scope="row">{{ label }}</th>
+
+                            <td>
+                                {{ ("%.1f"|format(
+                                    report.baseline[key] * 100
+                                )).replace(".", ",") }} %
+                            </td>
+
+                            <td>
+                                {{ ("%.1f"|format(
+                                    report.model[key] * 100
+                                )).replace(".", ",") }} %
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        {% for key, label in [
+                            ("f1", "Score F1"),
+                            ("roc_auc", "Aire sous la courbe ROC")
+                        ] %}
+                        <tr>
+                            <th scope="row">{{ label }}</th>
+
+                            <td>
+                                {{ ("%.3f"|format(
+                                    report.baseline[key]
+                                )).replace(".", ",") }}
+                            </td>
+
+                            <td>
+                                {{ ("%.3f"|format(
+                                    report.model[key]
+                                )).replace(".", ",") }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="small text-muted mb-0">
+                La référence prédit l’absence de départ pour tous.
+                Sa précision est indéfinie puisqu’elle ne produit
+                aucune alerte ; elle est affichée à 0 par convention.
+            </p>
+        </div>
+    </section>
+
+    {% set matrix = report.model.confusion_matrix %}
+
+    <section class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h4">Matrice de confusion sur le test</h2>
+
+            <div class="table-responsive">
+                <table class="table table-bordered text-center align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Observation / Prédiction</th>
+                            <th scope="col">Absence de départ</th>
+                            <th scope="col">Départ</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr>
+                            <th scope="row">Absence de départ observée</th>
+
+                            <td class="table-success">
+                                {{ matrix[0][0] }}
+                                <div class="small">Vrais négatifs</div>
+                            </td>
+
+                            <td class="table-warning">
+                                {{ matrix[0][1] }}
+                                <div class="small">Fausses alertes</div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">Départ observé</th>
+
+                            <td class="table-danger">
+                                {{ matrix[1][0] }}
+                                <div class="small">Départs non détectés</div>
+                            </td>
+
+                            <td class="table-success">
+                                {{ matrix[1][1] }}
+                                <div class="small">Départs détectés</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="alert alert-primary mt-4">
+        <h2 class="h6">Portée de cette évaluation</h2>
+
+        <p>
+            Le seuil fixe respecte la capacité de contact sur ce test.
+            Cela ne garantit pas qu’il la respectera sur un autre groupe.
+        </p>
+
+        <p class="mb-0">
+            Les données sont pédagogiques et fictives.
+            Détecter un départ ne démontre pas qu’une prise de contact
+            permettrait de l’éviter.
+        </p>
+    </section>
+
+</div>
+{% endblock %}

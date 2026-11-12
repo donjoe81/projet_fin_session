@@ -21,7 +21,10 @@ from app.services.dashboard_service import (
     get_tenure_distribution,
 )
 
-from app.services.model_service import get_validation_report
+from app.services.model_service import (
+    get_validation_report,
+    get_test_report,
+)
 
 @main_bp.route("/")
 def home():
@@ -100,4 +103,13 @@ def model_validation():
     return render_template(
         "model_validation.html",
         report=get_validation_report(),
+    )
+
+
+
+@main_bp.route("/test-final")
+def model_test():
+    return render_template(
+        "model_test.html",
+        report=get_test_report(),
     )
