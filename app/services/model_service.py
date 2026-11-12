@@ -157,6 +157,38 @@ def train_model():
 
     report["threshold_comparison"] = threshold_comparison
 
+        # Capacité hypothétique : contacter au maximum 35 % du groupe.
+    capacity_rate = 0.35
+    max_contacts = int(len(y_val) * capacity_rate)
+
+    eligible_thresholds = [
+        row
+        for row in threshold_comparison
+        if row["alerts"] <= max_contacts
+    ]
+
+    if not eligible_thresholds:
+        raise ValueError(
+            "Aucun des seuils comparés ne respecte la capacité."
+        )
+
+    # Priorité au rappel, puis à la précision en cas d'égalité.
+    selected = max(
+        eligible_thresholds,
+        key=lambda row: (
+            row["recall"],
+            row["precision"],
+            row["threshold"],
+        ),
+    )
+
+    report["decision"] = {
+        **selected,
+        "capacity_rate": capacity_rate,
+        "max_contacts": max_contacts,
+        "contact_rate": selected["alerts"] / len(y_val),
+    }
+
     # Les clients de test sont conservés sans être évalués ici.
     return model, report, X_test, y_test
 

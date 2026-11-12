@@ -188,7 +188,65 @@
             </p>
         </div>
     </section>
+    <section class="card shadow-sm mt-4 border-primary">
+    <div class="card-body">
+        <h2 class="h4">Scénario : capacité de contact limitée</h2>
 
+        <p class="text-muted">
+            Hypothèse pédagogique : contacter au maximum
+            {{ "%.0f"|format(report.decision.capacity_rate * 100) }} %
+            des clients de validation, en maximisant le rappel
+            parmi les cinq seuils comparés.
+        </p>
+
+        <div class="row g-3 mt-1">
+
+            <div class="col-md-4">
+                <div class="bg-light rounded p-3 h-100">
+                    <div class="text-muted">Seuil retenu par la règle</div>
+                    <strong class="fs-3">
+                        {{ ("%.2f"|format(
+                            report.decision.threshold
+                        )).replace(".", ",") }}
+                    </strong>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="bg-light rounded p-3 h-100">
+                    <div class="text-muted">Contacts proposés</div>
+                    <strong class="fs-3">
+                        {{ report.decision.alerts }}
+                    </strong>
+                    <div class="small text-muted">
+                        Maximum autorisé :
+                        {{ report.decision.max_contacts }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="bg-light rounded p-3 h-100">
+                    <div class="text-muted">Rappel sur la validation</div>
+                    <strong class="fs-3">
+                        {{ ("%.1f"|format(
+                            report.decision.recall * 100
+                        )).replace(".", ",") }} %
+                    </strong>
+                </div>
+            </div>
+
+        </div>
+
+        <p class="small text-muted mt-3 mb-0">
+            Ce choix utilise uniquement la validation.
+            Le tableau de comparaison avec la référence et la matrice
+            ci-dessous restent au seuil initial de
+            {{ ("%.2f"|format(report.threshold)).replace(".", ",") }}.
+            La capacité de 35 % reste à confirmer avec un véritable client.
+        </p>
+    </div>
+</section>
     <!-- Matrice de confusion -->
     {% set matrix = report.model.confusion_matrix %}
 
