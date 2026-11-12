@@ -1,186 +1,491 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard — Départs clients{% endblock %}
+{% block title %}Telco — Suivi des départs{% endblock %}
 
 {% block content %}
-<div class="py-4">
 
-    <h1 class="fw-bold">Suivi des départs clients</h1>
-    <p class="text-muted">
-        Vue d’ensemble du portefeuille et des départs observés.
-        Données pédagogiques d’une entreprise télécom fictive.
-    </p>
-    <form method="get"
-      action="{{ url_for('main.home') }}"
-      class="row g-3 align-items-end my-3">
+{% set contract_labels = {
+    "Month-to-month": "Mensuel",
+    "One year": "Un an",
+    "Two year": "Deux ans"
+} %}
 
-    <div class="col-md-5">
-        <label for="contract" class="form-label">
-            Type de contrat
-        </label>
+{% if summary.churn_rate < 0.10 %}
+    {% set status = "positive" %}
+    {% set status_label = "Proportion faible" %}
+{% elif summary.churn_rate < 0.30 %}
+    {% set status = "attention" %}
+    {% set status_label = "Proportion intermédiaire" %}
+{% else %}
+    {% set status = "negative" %}
+    {% set status_label = "Proportion élevée" %}
+{% endif %}
 
-        <select id="contract" name="contract" class="form-select">
-            <option value="">Tous les contrats</option>
+<style>
+    .telco {
+        --ink: #172b4d;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        color: var(--ink);
+        padding: 24px 0 40px;
+    }
 
-            {% for value, label in [
-                ("Month-to-month", "Mensuel"),
-                ("One year", "Un an"),
-                ("Two year", "Deux ans")
-            ] %}
-            <option value="{{ value }}"
-                    {% if selected_contract == value %}selected{% endif %}>
-                {{ label }}
-            </option>
-            {% endfor %}
-        </select>
-    </div>
+    .telco .hero {
+        padding: 30px;
+        border-radius: 22px;
+        color: white;
+        background: linear-gradient(120deg, #152c56, #245ac0);
+        box-shadow: 0 12px 30px rgba(30, 64, 120, .15);
+    }
 
-    <div class="col-md-auto">
-        <button type="submit" class="btn btn-primary">
-            Appliquer
-        </button>
+    .telco .eyebrow {
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .15em;
+        text-transform: uppercase;
+        color: #bfdbfe;
+    }
 
-        <a href="{{ url_for('main.home') }}"
-           class="btn btn-outline-secondary">
-            Réinitialiser
-        </a>
-    </div>
-</form>
-    <!-- Indicateurs principaux -->
-    <div class="row g-3 my-3">
+    .telco .hero h1 {
+        margin: 12px 0;
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        font-weight: 750;
+    }
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 text-muted">Clients observés</h2>
-                    <p class="display-6 mb-0">
-                        {{ summary.total_clients }}
-                    </p>
-                </div>
+    .telco .hero p {
+        max-width: 750px;
+        color: #dbeafe;
+        margin-bottom: 18px;
+    }
+
+    .telco .scope {
+        display: inline-block;
+        padding: 7px 13px;
+        border: 1px solid rgba(255,255,255,.3);
+        border-radius: 30px;
+        background: rgba(255,255,255,.1);
+        font-size: .85rem;
+    }
+
+    .telco .panel {
+        margin-top: 22px;
+        padding: 24px;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 4px 18px rgba(15,23,42,.035);
+    }
+
+    .telco .panel h2 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .telco .muted {
+        color: var(--muted);
+        font-size: .9rem;
+    }
+
+    .telco .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 22px;
+    }
+
+    .telco .metric {
+        padding: 23px;
+        border: 1px solid var(--line);
+        border-top: 4px solid #3b82f6;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 4px 18px rgba(15,23,42,.035);
+    }
+
+    .telco .metric-label {
+        color: var(--muted);
+        font-size: .85rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+
+    .telco .metric-value {
+        font-size: clamp(1.8rem, 3vw, 2.6rem);
+        line-height: 1.15;
+        font-weight: 750;
+        letter-spacing: -.04em;
+    }
+
+    .telco .metric-note {
+        font-size: .8rem;
+        color: var(--muted);
+        margin-top: 10px;
+    }
+
+    .telco .metric.positive {
+        border-top-color: #15803d;
+        background: #f0fdf4;
+    }
+
+    .telco .metric.attention {
+        border-top-color: #ca8a04;
+        background: #fffbeb;
+    }
+
+    .telco .metric.negative {
+        border-top-color: #dc2626;
+        background: #fff7f7;
+    }
+
+    .telco .badge-status {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: .75rem;
+        font-weight: 700;
+    }
+
+    .telco .badge-status.positive {
+        color: #166534;
+        background: #dcfce7;
+    }
+
+    .telco .badge-status.attention {
+        color: #854d0e;
+        background: #fef3c7;
+    }
+
+    .telco .badge-status.negative {
+        color: #991b1b;
+        background: #fee2e2;
+    }
+
+    .telco .chart-container {
+        position: relative;
+        height: 320px;
+        margin-top: 20px;
+    }
+
+    .telco .table {
+        color: var(--ink);
+        margin-top: 18px;
+    }
+
+    .telco .table th,
+    .telco .table td {
+        padding: 16px 12px;
+        border-color: #edf2f7;
+        vertical-align: middle;
+    }
+
+    .telco .table thead th {
+        background: #f8fafc;
+        color: var(--muted);
+        font-size: .8rem;
+        font-weight: 600;
+    }
+
+    .telco .quality {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        background: #eff6ff;
+        border-color: #bfdbfe;
+    }
+
+    .telco .quality-icon {
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-weight: 800;
+    }
+
+    .telco .btn-primary {
+        background: #245ac0;
+        border-color: #245ac0;
+    }
+
+    .telco .form-select,
+    .telco .btn {
+        border-radius: 10px;
+        min-height: 44px;
+    }
+
+    @media (max-width: 1100px) {
+        .telco .metrics {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 575px) {
+        .telco .metrics {
+            grid-template-columns: 1fr;
+        }
+
+        .telco .hero,
+        .telco .panel {
+            padding: 20px;
+        }
+    }
+</style>
+
+<div class="telco">
+
+    <header class="hero">
+        <div class="eyebrow">Telco · Tableau de bord</div>
+
+        <h1>Suivi des départs clients</h1>
+
+        <p>
+            Explorez les départs observés et comparez les types
+            de contrats sur un même périmètre.
+        </p>
+
+        <span class="scope">
+            Périmètre :
+            {{ contract_labels.get(selected_contract, "Tous les contrats") }}
+        </span>
+    </header>
+
+    <!-- Filtre -->
+    <section class="panel">
+        <h2>Choisir un périmètre</h2>
+
+        <form method="get"
+              action="{{ url_for('main.home') }}"
+              class="row g-3 align-items-end mt-1">
+
+            <div class="col-md-5">
+                <label for="contract" class="form-label muted">
+                    Type de contrat
+                </label>
+
+                <select id="contract"
+                        name="contract"
+                        class="form-select">
+
+                    <option value="">Tous les contrats</option>
+
+                    {% for value, label in contract_labels.items() %}
+                    <option value="{{ value }}"
+                        {% if selected_contract == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 text-muted">Départs observés</h2>
-                    <p class="display-6 mb-0">
-                        {{ summary.departures }}
-                    </p>
-                </div>
+            <div class="col-md-auto d-flex gap-2 flex-wrap">
+                <button type="submit" class="btn btn-primary px-4">
+                    Appliquer
+                </button>
+
+                <a href="{{ url_for('main.home') }}"
+                   class="btn btn-outline-secondary">
+                    Réinitialiser
+                </a>
             </div>
-        </div>
+        </form>
+    </section>
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 text-muted">Proportion de départs</h2>
-                    <p class="display-6 mb-0">
-                        {{ "%.1f"|format(summary.churn_rate * 100) }} %
-                    </p>
-                </div>
+    <!-- Indicateurs -->
+    <section class="metrics" aria-label="Indicateurs du périmètre">
+
+        <article class="metric">
+            <h2 class="metric-label">Clients observés</h2>
+
+            <div class="metric-value">
+                {{ "{:,}".format(summary.total_clients).replace(",", " ") }}
             </div>
-        </div>
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 text-muted">Ancienneté médiane</h2>
-                    <p class="display-6 mb-0">
-                        {{ "%.0f"|format(summary.median_tenure) }}
-                        <small class="fs-6">mois</small>
-                    </p>
-                </div>
+            <div class="metric-note">Effectif du périmètre sélectionné</div>
+        </article>
+
+        <article class="metric">
+            <h2 class="metric-label">Départs observés</h2>
+
+            <div class="metric-value">
+                {{ "{:,}".format(summary.departures).replace(",", " ") }}
             </div>
-        </div>
 
-    </div>
+            <div class="metric-note">
+                {{ summary.remaining_clients }} clients sans départ observé
+            </div>
+        </article>
 
-    <section class="card shadow-sm mt-4">
-    <div class="card-body">
-        <h2 class="h4">Proportion de départs par contrat</h2>
+        <article class="metric {{ status }}">
+            <h2 class="metric-label">Proportion de départs</h2>
 
-        <div style="position: relative; height: 320px;">
+            <div class="metric-value">
+                {{ ("%.1f"|format(summary.churn_rate * 100)).replace(".", ",") }} %
+            </div>
+
+            <div class="mt-2">
+                <span class="badge-status {{ status }}">
+                    {{ status_label }}
+                </span>
+            </div>
+
+            {% if summary.churn_ci_low is defined
+                  and summary.churn_ci_high is defined %}
+            <div class="metric-note">
+                IC à 95 % :
+                {{ ("%.1f"|format(summary.churn_ci_low * 100)).replace(".", ",") }} %
+                –
+                {{ ("%.1f"|format(summary.churn_ci_high * 100)).replace(".", ",") }} %
+            </div>
+            {% endif %}
+        </article>
+
+        <article class="metric">
+            <h2 class="metric-label">Ancienneté médiane</h2>
+
+            <div class="metric-value">
+                {{ "%.0f"|format(summary.median_tenure) }}
+                <span style="font-size: 1rem; font-weight: 500;">
+                    mois
+                </span>
+            </div>
+
+            <div class="metric-note">
+                Médiane des anciennetés du périmètre
+            </div>
+        </article>
+
+    </section>
+
+    <!-- Graphique -->
+    <section class="panel">
+        <h2>Proportion de départs par contrat</h2>
+
+        <p class="muted mb-0">
+            Pour chaque contrat, les départs sont rapportés
+            au nombre de clients de ce contrat.
+        </p>
+
+        <div class="chart-container">
             <canvas
                 id="contractChart"
                 role="img"
-                aria-label="Proportion de départs par contrat.
-                            Les valeurs sont détaillées dans le tableau suivant.">
+                aria-label="Proportions de départs par contrat,
+                            détaillées dans le tableau suivant.">
             </canvas>
         </div>
-    </div>
-    </section>
 
-    <!-- Comparaison des contrats -->
-    <section class="card shadow-sm mt-4">
-        <div class="card-body">
-            <h2 class="h4">Départs selon le contrat</h2>
-            <p class="text-muted">
-                Pour chaque contrat, la proportion est calculée
-                parmi les clients ayant ce type de contrat.
-            </p>
-
-            {% set contract_labels = {
-                "Month-to-month": "Mensuel",
-                "One year": "Un an",
-                "Two year": "Deux ans"
-            } %}
-
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th scope="col">Contrat</th>
-                            <th scope="col">Clients</th>
-                            <th scope="col">Départs</th>
-                            <th scope="col">Proportion de départs</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {% for row in contracts %}
-                        <tr>
-                            <th scope="row">
-                                {{ contract_labels.get(
-                                    row.Contract, row.Contract
-                                ) }}
-                            </th>
-                            <td>{{ row.total_clients }}</td>
-                            <td>{{ row.departures }}</td>
-                            <td>
-                                {{ "%.1f"|format(
-                                    row.churn_rate * 100
-                                ) }} %
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <p class="small text-muted mb-0">
-                Ces comparaisons décrivent des associations.
-                Elles ne démontrent pas qu’un changement de contrat
-                provoquerait une diminution des départs.
-            </p>
-        </div>
-    </section>
-
-    <section class="alert alert-light border mt-4">
-        <h2 class="h6">Qualité des données</h2>
-        <p class="mb-0">
-            {{ summary.missing_total_charges }} montants cumulés
-            sont manquants. Les clients concernés restent inclus
-            dans les effectifs et les proportions de départs.
+        <p class="muted mt-3 mb-0">
+            Repères visuels indicatifs :
+            vert &lt; 10 % · jaune de 10 à moins de 30 % · rouge ≥ 30 %.
+            Ces seuils ne sont pas des normes du secteur.
         </p>
     </section>
 
+    <!-- Tableau -->
+    <section class="panel">
+        <h2>Détail des départs</h2>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Contrat</th>
+                        <th scope="col">Clients</th>
+                        <th scope="col">Départs</th>
+                        <th scope="col">Proportion</th>
+                        <th scope="col">Repère visuel</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in contracts %}
+
+                    {% if row.churn_rate < 0.10 %}
+                        {% set row_status = "positive" %}
+                        {% set row_label = "Faible" %}
+                    {% elif row.churn_rate < 0.30 %}
+                        {% set row_status = "attention" %}
+                        {% set row_label = "Intermédiaire" %}
+                    {% else %}
+                        {% set row_status = "negative" %}
+                        {% set row_label = "Élevée" %}
+                    {% endif %}
+
+                    <tr>
+                        <th scope="row">
+                            {{ contract_labels.get(row.Contract, row.Contract) }}
+                        </th>
+
+                        <td>
+                            {{ "{:,}".format(row.total_clients).replace(",", " ") }}
+                        </td>
+
+                        <td>{{ row.departures }}</td>
+
+                        <td class="fw-bold">
+                            {{ ("%.1f"|format(row.churn_rate * 100)).replace(".", ",") }} %
+                        </td>
+
+                        <td>
+                            <span class="badge-status {{ row_status }}">
+                                {{ row_label }}
+                            </span>
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="muted mb-0">
+            Les différences observées décrivent des associations.
+            Elles ne démontrent pas qu’un changement de contrat
+            provoquerait une diminution des départs.
+        </p>
+    </section>
+
+    <!-- Qualité -->
+    <section class="panel quality">
+        <div class="quality-icon" aria-hidden="true">i</div>
+
+        <div>
+            <h2>Qualité et portée des données</h2>
+
+            <p class="muted mb-2">
+                {{ summary.missing_total_charges }} montants cumulés
+                manquants dans le périmètre sélectionné.
+                Les clients concernés restent inclus dans les effectifs
+                et les proportions.
+            </p>
+
+            <p class="muted mb-0">
+                Données pédagogiques d’une entreprise fictive.
+                Les éventuels intervalles de confiance supposent
+                un modèle binomial et des observations indépendantes ;
+                ils ne valident pas une généralisation à un opérateur réel.
+            </p>
+        </div>
+    </section>
+
 </div>
+
 {% endblock %}
 
 {% block script %}
+
+<script id="contracts-data" type="application/json">
+    {{ contracts | tojson }}
+</script>
+
 <script>
-    const contracts = {{ contracts | tojson }};
+    const contracts = JSON.parse(
+        document.getElementById("contracts-data").textContent
+    );
 
     const contractLabels = {
         "Month-to-month": "Mensuel",
@@ -194,40 +499,71 @@
         maximumFractionDigits: 1
     });
 
+    function departureColor(rate) {
+        if (rate < 0.10) return "#15803d";
+        if (rate < 0.30) return "#ca8a04";
+        return "#dc2626";
+    }
+
     new Chart(document.getElementById("contractChart"), {
         type: "bar",
+
         data: {
             labels: contracts.map(
                 row => contractLabels[row.Contract] || row.Contract
             ),
+
             datasets: [{
                 label: "Proportion de départs",
                 data: contracts.map(row => row.churn_rate),
-                backgroundColor: "#2563eb",
-                borderRadius: 5
+                backgroundColor: contracts.map(
+                    row => departureColor(row.churn_rate)
+                ),
+                borderRadius: 7,
+                maxBarThickness: 130
             }]
         },
+
         options: {
             responsive: true,
             maintainAspectRatio: false,
+
             scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+
                 y: {
                     min: 0,
                     max: 1,
+
                     title: {
                         display: true,
-                        text: "Clients ayant quitté l’entreprise (%)"
+                        text: "Proportion de départs"
                     },
+
                     ticks: {
+                        stepSize: 0.2,
                         callback: value => percentFormat.format(value)
+                    },
+
+                    grid: {
+                        color: "#edf2f7"
                     }
                 }
             },
+
             plugins: {
                 legend: {
                     display: false
                 },
+
                 tooltip: {
+                    backgroundColor: "#172b4d",
+                    padding: 12,
+
                     callbacks: {
                         label: context => {
                             const row = contracts[context.dataIndex];
@@ -243,4 +579,5 @@
         }
     });
 </script>
+
 {% endblock %}
