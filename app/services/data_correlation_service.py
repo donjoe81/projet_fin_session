@@ -15,13 +15,15 @@ from statsmodels.stats.multitest import multipletests
 from scipy.stats.contingency import association
 
 def detect_variable_types(df):
+    # Un identifiant unique ne sert pas à étudier les associations.
+    data = df.drop(columns=["customerID"], errors="ignore")
 
-    numeric_cols = df.select_dtypes(
-        include=['number']
+    numeric_cols = data.select_dtypes(
+        include=["number"]
     ).columns.tolist()
 
-    categorical_cols = df.select_dtypes(
-        include=['object', 'category', 'bool']
+    categorical_cols = data.select_dtypes(
+        include=["object", "string", "category", "bool"]
     ).columns.tolist()
 
     return numeric_cols, categorical_cols

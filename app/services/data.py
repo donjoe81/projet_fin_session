@@ -1,26 +1,40 @@
-import pandas as pd
-from pandas import DataFrame
+from functools import lru_cache
 from pathlib import Path
-root=Path(__file__).resolve().parents[2]
-csv_file=root/'dataset'/'WA_Fn-UseC_-Telco-Customer-Churn.csv'
-df=pd.read_csv(csv_file)
+
+import pandas as pd
+
+
+ROOT = Path(__file__).resolve().parents[2]
+CSV_FILE = ROOT / "dataset" / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
+
+
+@lru_cache(maxsize=1)
+def _load_data():
+    """Charge et nettoie les données sans modifier le CSV original."""
+    df = pd.read_csv(CSV_FILE)
+
+    # Les espaces deviennent des valeurs manquantes.
+    df["TotalCharges"] = pd.to_numeric(
+        df["TotalCharges"],
+        errors="coerce",
+    )
+
+    # SeniorCitizen est une catégorie, pas une mesure numérique.
+    df["SeniorCitizen"] = df["SeniorCitizen"].map({
+        0: "No",
+        1: "Yes",
+    })
+
+    return df
+
+
+def get_data_frame():
+    # Une copie évite qu'un module modifie les données des autres.
+    return _load_data().copy(deep=True)
+
 
 class MyDataFrame:
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-
-        return cls._instance
-
-    def __init__(self):
-        if not hasattr(self, "_initialized"):
-            self._df = pd.read_csv(csv_file)
-            self._initialized = True
+    """Conserve la compatibilité avec le code existant."""
 
     def getMyDataFrame(self):
-        return self._df
-
-def get_data_frame() -> DataFrame:
-    return df
+        return get_data_frame()
