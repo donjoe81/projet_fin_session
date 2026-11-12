@@ -12,13 +12,28 @@ from app.services.dashboard_service import (
     get_dashboard_summary,
     get_churn_by_contract,
 )
+from flask import request, abort
 
 @main_bp.route("/")
 def home():
+    contract = request.args.get("contract", "").strip()
+
+    allowed_contracts = {
+        "Month-to-month",
+        "One year",
+        "Two year",
+    }
+
+    if contract and contract not in allowed_contracts:
+        abort(400, description="Type de contrat inconnu.")
+
+    selected_contract = contract or None
+
     return render_template(
         "index.html",
-        summary=get_dashboard_summary(),
-        contracts=get_churn_by_contract(),
+        summary=get_dashboard_summary(selected_contract),
+        contracts=get_churn_by_contract(selected_contract),
+        selected_contract=contract,
     )
 
 

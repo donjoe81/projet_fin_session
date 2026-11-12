@@ -10,7 +10,42 @@
         Vue d’ensemble du portefeuille et des départs observés.
         Données pédagogiques d’une entreprise télécom fictive.
     </p>
+    <form method="get"
+      action="{{ url_for('main.home') }}"
+      class="row g-3 align-items-end my-3">
 
+    <div class="col-md-5">
+        <label for="contract" class="form-label">
+            Type de contrat
+        </label>
+
+        <select id="contract" name="contract" class="form-select">
+            <option value="">Tous les contrats</option>
+
+            {% for value, label in [
+                ("Month-to-month", "Mensuel"),
+                ("One year", "Un an"),
+                ("Two year", "Deux ans")
+            ] %}
+            <option value="{{ value }}"
+                    {% if selected_contract == value %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-auto">
+        <button type="submit" class="btn btn-primary">
+            Appliquer
+        </button>
+
+        <a href="{{ url_for('main.home') }}"
+           class="btn btn-outline-secondary">
+            Réinitialiser
+        </a>
+    </div>
+</form>
     <!-- Indicateurs principaux -->
     <div class="row g-3 my-3">
 
