@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Telco — Comparaison des modèles{% endblock %}
+
+{% block content %}
+
+{% set names = {
+    "logistic_regression": "Régression logistique",
+    "neural_network": "Réseau de neurones"
+} %}
+
+<style>
+    body {
+        background: #eef2ff;
+    }
+
+    .comparison {
+        color: #172b4d;
+        padding: 24px 0 40px;
+    }
+
+    .comparison .banner {
+        padding: 28px;
+        border-radius: 20px;
+        background: linear-gradient(120deg, #152c56, #245ac0);
+        color: white;
+    }
+
+    .comparison .banner p {
+        color: #dbeafe;
+        margin-bottom: 0;
+    }
+
+    .comparison .panel {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        margin-top: 22px;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, .04);
+    }
+
+    .comparison .table th,
+    .comparison .table td {
+        padding: 14px 12px;
+        vertical-align: middle;
+    }
+
+    .comparison .table thead th {
+        background: #f1f5f9;
+        color: #334155;
+    }
+
+    .comparison .network-label {
+        display: inline-block;
+        padding: 6px 12px;
+        background: #ede9fe;
+        color: #5b21b6;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: .85rem;
+    }
+</style>
+
+<div class="comparison">
+
+    <a href="{{ url_for('main.home') }}"
+       class="btn btn-outline-secondary mb-3">
+        Retour au dashboard
+    </a>
+
+    <header class="banner">
+        <h1 class="fw-bold">Comparaison des modèles</h1>
+
+        <p>
+            Régression logistique et réseau de neurones,
+            évalués sur les mêmes clients de validation.
+        </p>
+    </header>
+
+    <section class="panel">
+        <h2 class="h4">Protocole de comparaison</h2>
+
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="text-muted">Groupe d’entraînement</div>
+                <strong class="fs-3">{{ report.train_size }}</strong>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted">Validation externe</div>
+                <strong class="fs-3">
+                    {{ report.validation_size }}
+                </strong>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted">Couches cachées du réseau</div>
+                <span class="network-label">
+                    {{ report.network.hidden_layers | join(" → ") }}
+                    neurones
+                </span>
+            </div>
+        </div>
+
+        <p class="text-muted mt-3 mb-1">
+            Variables communes : ancienneté, montant mensuel
+            et type de contrat.
+        </p>
+
+        <p class="text-muted mb-0">
+            Le réseau utilise ReLU dans les couches cachées
+            et une sigmoïde en sortie. L’arrêt anticipé utilise
+            un sous-groupe prélevé uniquement dans l’entraînement.
+            Nombre d’itérations réalisées :
+            {{ report.network.iterations }}.
+        </p>
+    </section>
+
+    <!-- Comparaison au même seuil -->
+    <section class="panel">
+        <h2 class="h4">Comparaison au seuil commun de 0,50</h2>
+
+        <p class="text-muted">
+            Les deux modèles utilisent le même seuil.
+            Leurs scores peuvent toutefois être calibrés différemment.
+        </p>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Modèle</th>
+                        <th scope="col">Exactitude</th>
+                        <th scope="col">Précision</th>
+                        <th scope="col">Rappel</th>
+                        <th scope="col">F1</th>
+                        <th scope="col">Aire ROC</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for name, result in report.models.items() %}
+                    {% set scores = result.metrics_at_050 %}
+
+                    <tr>
+                        <th scope="row">{{ names[name] }}</th>
+
+                        <td>
+                            {{ ("%.1f"|format(
+                                scores.accuracy * 100
+                            )).replace(".", ",") }} %
+                        </td>
+
+                        <td>
+                            {{ ("%.1f"|format(
+                                scores.precision * 100
+                            )).replace(".", ",") }} %
+                        </td>
+
+                        <td>
+                            {{ ("%.1f"|format(
+                                scores.recall * 100
+                            )).replace(".", ",") }} %
+                        </td>
+
+                        <td>
+                            {{ ("%.3f"|format(
+                                scores.f1
+                            )).replace(".", ",") }}
+                        </td>
+
+                        <td>
+                            {{ ("%.3f"|format(
+                                scores.roc_auc
+                            )).replace(".", ",") }}
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Comparaison selon l'objectif du client -->
+    <section class="panel">
+        <h2 class="h4">Comparaison sous capacité limitée</h2>
+
+        <p class="text-muted">
+            Chaque modèle sélectionne son seuil parmi les cinq
+            valeurs comparées, en maximisant le rappel avec
+            au maximum
+            {{ "%.0f"|format(report.capacity_rate * 100) }} %
+            de contacts sur la validation.
+        </p>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Modèle</th>
+                        <th scope="col">Seuil</th>
+                        <th scope="col">Alertes / plafond</th>
+                        <th scope="col">Précision</th>
+                        <th scope="col">Rappel</th>
+                        <th scope="col">Fausses alertes</th>
+                        <th scope="col">Départs manqués</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for name, result in report.models.items() %}
+                    {% set comparison = result.capacity_comparison %}
+                    {% set selected = comparison.selected %}
+
+                    <tr>
+                        <th scope="row">{{ names[name] }}</th>
+
+                        {% if selected is not none %}
+
+                        <td>
+                            {{ ("%.2f"|format(
+                                selected.threshold
+                            )).replace(".", ",") }}
+                        </td>
+
+                        <td>
+                            {{ selected.alerts }}
+                            / {{ comparison.max_contacts }}
+                        </td>
+
+                        <td>
+                            {% if selected.alerts > 0 %}
+                                {{ ("%.1f"|format(
+                                    selected.precision * 100
+                                )).replace(".", ",") }} %
+                            {% else %}
+                                Non définie
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ ("%.1f"|format(
+                                selected.recall * 100
+                            )).replace(".", ",") }} %
+                        </td>
+
+                        <td>{{ selected.false_positives }}</td>
+                        <td>{{ selected.false_negatives }}</td>
+
+                        {% else %}
+
+                        <td colspan="6">
+                            Aucun des seuils comparés ne respecte
+                            la capacité.
+                        </td>
+
+                        {% endif %}
+                    </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="small text-muted mb-0">
+            La capacité maximale est identique, mais le nombre
+            de contacts effectivement proposé peut différer.
+            Un seuil fixe ne garantit pas ce plafond sur un autre groupe.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2 class="h5">Statut de cette comparaison</h2>
+
+        <p class="text-muted mb-0">
+            Cette comparaison est exploratoire : plusieurs architectures
+            ont été examinées sur la même validation.
+            Elle n’utilise pas les clients du test pour calculer
+            les mesures présentées ici. Les résultats historiques
+            du test final de la régression logistique restent inchangés.
+            Ces écarts ne démontrent pas une supériorité générale
+            d’un modèle.
+        </p>
+    </section>
+
+</div>
+
+{% endblock %}

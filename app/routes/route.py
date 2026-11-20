@@ -26,6 +26,8 @@ from app.services.model_service import (
     get_test_report,
 )
 
+from app.services.comparison_service import get_model_comparison
+
 @main_bp.route("/")
 def home():
     contract = request.args.get("contract", "").strip()
@@ -112,4 +114,12 @@ def model_test():
     return render_template(
         "model_test.html",
         report=get_test_report(),
+    )
+
+
+@main_bp.route("/comparaison")
+def model_comparison():
+    return render_template(
+        "model_comparison.html",
+        report=get_model_comparison(),
     )
