@@ -1,9 +1,6 @@
 from flask import Blueprint, render_template, jsonify, send_from_directory
 from app.services.data_mining_service import get_infos_columns
-from app.services.ydata_profiling_service import (
-    generate_profiling_report,
-    REPORTS_DIR
-)
+
 from app.services.data_correlation_service import get_significant_relationships
 main_bp=Blueprint('main',__name__)
 
@@ -49,46 +46,6 @@ def home():
         contracts=get_churn_by_contract(selected_contract),
         selected_contract=contract,
         tenure_distribution=get_tenure_distribution(selected_contract),
-    )
-
-
-@main_bp.route("/profiling")
-def profiling():
-
-    try:
-        generate_profiling_report()
-
-        return render_template(
-            "profiling.html"
-        )
-
-    except ImportError:
-        return render_template(
-            "profiling.html",
-            erreur="Le module de profilage optionnel n’est pas installé."
-        ), 503
-
-    except Exception:
-        current_app.logger.exception(
-            "Erreur pendant la génération du rapport."
-        )
-
-        return render_template(
-            "profiling.html",
-            erreur="Impossible de générer le rapport. "
-                   "Vérifiez le dataset et les journaux de l'application."
-        ), 500
-
-
-@main_bp.route("/profiling/report")
-def afficher_rapport():
-    """
-    Sert le rapport HTML généré dans le dossier reports.
-    """
-
-    return send_from_directory(
-        str(REPORTS_DIR),
-        "profiling_report.html"
     )
 
 @main_bp.route('/analyse_exploratoire')
