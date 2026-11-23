@@ -2,3 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv-verification/
+
+# Rapport et diapositives (remise sur Moodle)
+/Rapport_Projet_session_statistique*.pdf
+/Projet final analyses stat*.pdf

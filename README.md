@@ -6,7 +6,7 @@ Projet du cours INF-5103 — Concepts statistiques pour la science des données.
 
 L’application s’adresse à un responsable de la fidélisation d’un
 opérateur télécom. Elle permet d’explorer les départs observés,
-de comparer des groupes et d’examiner un modèle de classification.
+de comparer des groupes et d’examiner deux modèles de classification.
 
 Il s’agit d’un prototype pédagogique utilisant des données fictives.
 
@@ -18,9 +18,10 @@ Il s’agit d’un prototype pédagogique utilisant des données fictives.
 - Comparaison des départs par contrat.
 - Répartition des anciennetés selon le départ observé.
 - Exploration des variables et tests d’association.
-- Régression logistique comparée à une référence constante.
-- Comparaison des seuils sur la validation.
-- Évaluation finale sur un groupe de test réservé.
+- Régression logistique et réseau de neurones à deux couches cachées (8 et 4 neurones).
+- Comparaison des deux modèles à une référence constante.
+- Comparaison et sélection des seuils sur la validation sous contrainte de contact.
+- Mesures de performance et matrices de confusion pour chaque modèle, sur validation et test.
 
 ## Installation sous WSL / Linux
 
@@ -52,11 +53,14 @@ Ouvrir ensuite : http://127.0.0.1:5000
 | `/` | Dashboard et filtres |
 | `/analyse_exploratoire` | Exploration des variables |
 | `/correlation_vars` | Tests d’association |
-| `/validation` | Comparaison avec la référence et sélection du seuil |
-| `/test-final` | Résultats de l’évaluation finale |
+| `/validation` | Évaluation des deux modèles et choix des seuils sur la validation |
+| `/comparaison` | Même présentation de la comparaison sur la validation |
+| `/test-final` | Évaluation des deux modèles aux seuils choisis sur la validation |
 
-Le profilage automatique est optionnel. Si sa dépendance n’est pas
-installée, sa page affiche un message d’indisponibilité.
+Les pages des modèles utilisent des groupes fixes, indépendants du filtre
+par contrat du dashboard. Le premier affichage entraîne les modèles ;
+les résultats sont ensuite conservés en mémoire. Redémarrer Flask après
+une modification des données ou des paramètres.
 
 ## Données
 
@@ -89,15 +93,15 @@ pas un échantillon validé de la clientèle d’un opérateur réel.
 - Intervalles de confiance de Wilson sous hypothèse binomiale
   et indépendance des observations.
 - Tests d’association avec correction des comparaisons multiples.
-- Régression logistique.
+- Régression logistique et réseau de neurones (perceptron multicouche).
 
 Les couleurs du dashboard utilisent des repères de démonstration :
 moins de 10 %, de 10 % à moins de 30 %, puis 30 % et plus.
 Ces seuils ne sont pas des normes du secteur.
 
-## Modèle et protocole d’évaluation
+## Modèles et protocole d’évaluation
 
-Variables du modèle :
+Variables communes aux deux modèles :
 
 - `tenure` : ancienneté ;
 - `MonthlyCharges` : montant mensuel ;
@@ -114,42 +118,91 @@ Séparation stratifiée reproductible, avec la graine 5103 :
 L’imputation, la standardisation et l’encodage sont ajustés uniquement
 sur l’entraînement.
 
-La référence prédit l’absence de départ pour tous les clients.
+Le contrat est encodé en deux indicatrices : les modèles reçoivent donc
+quatre entrées après transformation.
+
+- Régression logistique : régularisation par défaut, maximum de 1 000 itérations.
+- Réseau : couches cachées de 8 puis 4 neurones, activation ReLU, sortie
+  sigmoïde, optimiseur Adam et arrêt anticipé. Il réserve 15 % du groupe
+  d’entraînement à une validation interne pour cet arrêt.
+
+Aucune pondération des classes ni aucun suréchantillonnage n’est appliqué.
+La référence prédit l’absence de départ pour tous les clients. Sa précision
+est indéfinie puisqu’elle ne produit aucune alerte.
+
+Les pages affichent l’exactitude, la précision, le rappel, le F1 et l’aire
+ROC, au seuil commun de 0,50 et aux seuils retenus sur la validation.
 
 ### Choix du seuil
 
 Hypothèse pédagogique : contacter au maximum 35 % des clients
 de validation.
 
-Parmi les seuils 0,20 ; 0,35 ; 0,50 ; 0,65 ; 0,80, la règle maximise
-le rappel sous cette contrainte. Elle retient le seuil 0,35.
+Pour 1 409 clients, le plafond est de 493 contacts (arrondi à l’entier inférieur).
+Pour chaque modèle, la règle compare les seuils 0,20 ; 0,35 ; 0,50 ; 0,65 ;
+0,80 et maximise le rappel sans dépasser le plafond. En cas d’égalité,
+elle privilégie la précision, puis le seuil le plus élevé.
+Les deux modèles retiennent ici 0,35. Ce seuil de score est distinct
+de la capacité de contact de 35 %.
 
-Le modèle et ce seuil ont été fixés avant l’évaluation finale.
+### Résultats sur la validation aux seuils retenus
 
-### Résultats du test au seuil 0,35
+| Mesure | Régression logistique | Réseau 8–4 |
+|---|---:|---:|
+| Seuil | 0,35 | 0,35 |
+| Exactitude | 75,2 % | 75,7 % |
+| Précision | 52,5 % | 53,3 % |
+| Rappel | 69,0 % | 66,6 % |
+| F1 | 0,597 | 0,592 |
+| Aire ROC | 0,829 | 0,835 |
+| Alertes | 491 | 467 |
+| Départs détectés | 258 | 249 |
+| Fausses alertes | 233 | 218 |
+| Départs manqués | 116 | 125 |
 
-| Mesure | Valeur |
-|---|---:|
-| Exactitude | 75,9 % |
-| Précision | 53,7 % |
-| Rappel | 68,7 % |
-| F1 | 0,603 |
-| Aire ROC | 0,835 |
-| Alertes | 479 sur 1 409 |
-| Part des clients signalés | 34,0 % |
+### Résultats sur le test aux seuils de validation
 
-Matrice de confusion :
+La régression a d’abord été évaluée sur le test réservé. Le réseau a été
+ajouté après consultation de ces résultats : la comparaison actuelle est
+complémentaire et ne constitue pas une nouvelle évaluation indépendante.
+Les seuils proviennent de la validation et ne sont pas réajustés sur le test.
+
+| Mesure | Régression logistique | Réseau 8–4 |
+|---|---:|---:|
+| Seuil | 0,35 | 0,35 |
+| Exactitude | 75,9 % | 77,1 % |
+| Précision | 53,7 % | 55,6 % |
+| Rappel | 68,7 % | 67,6 % |
+| F1 | 0,603 | 0,610 |
+| Aire ROC | 0,835 | 0,840 |
+| Alertes sur 1 409 clients | 479 | 455 |
+| Part des clients signalés | 34,0 % | 32,3 % |
+
+Matrices de confusion : les lignes indiquent l’observation réelle et les
+colonnes la prédiction. Les deux modèles respectent ici le plafond de
+493 contacts, avec des nombres de contacts différents.
+
+**Régression logistique**
 
 | Observation / Prédiction | Absence de départ | Départ |
 |---|---:|---:|
 | Absence de départ | 813 | 222 |
 | Départ | 117 | 257 |
 
+**Réseau de neurones**
+
+| Observation / Prédiction | Absence de départ | Départ |
+|---|---:|---:|
+| Absence de départ | 833 | 202 |
+| Départ | 121 | 253 |
+
 ## Limites
 
 - Les données sont fictives.
 - Les associations observées ne démontrent pas des relations causales.
-- Les scores du modèle ne sont pas des certitudes individuelles.
+- Les scores des modèles ne sont pas des certitudes individuelles.
+- Une seule séparation des données et une seule initialisation par architecture
+  du réseau ont été examinées ; la stabilité des résultats n’est pas mesurée.
 - Un seuil fixe ne garantit pas le respect du quota sur un nouveau groupe.
 - Détecter un départ ne démontre pas qu’un contact commercial l’éviterait.
 - Toute modification motivée par les résultats du test nécessiterait
@@ -158,9 +211,11 @@ Matrice de confusion :
 ## Vérifications réalisées
 
 - Installation des dépendances dans un environnement virtuel séparé.
-- Réponse HTTP 200 des huit pages et sélections vérifiées.
+- Réponse HTTP 200 des neuf pages et sélections vérifiées.
 - Réponse HTTP 400 pour un contrat inconnu.
 - Concordance des effectifs des tranches d’ancienneté avec les indicateurs.
+- Contrôle des totaux des matrices et du nombre d’alertes pour les deux modèles.
+- Concordance des résultats avec les tableaux du rapport.
 - Vérification visuelle du dashboard et des graphiques.
 
 Les contrôles HTTP ne constituent pas un audit exhaustif des méthodes
@@ -172,5 +227,5 @@ ChatGPT / Codex a été utilisé pour proposer et corriger du code,
 aider au débogage, expliquer des méthodes et proposer des éléments
 d’interface et de documentation.
 
-L’équipe doit compléter la déclaration du rapport pour refléter
-l’utilisation effective de ces outils et vérifier les éléments retenus.
+L’annexe du rapport présente la déclaration d’utilisation de l’IA.
+Elle doit refléter l’aide effectivement reçue au cours du projet.
