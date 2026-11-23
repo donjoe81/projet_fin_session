@@ -1,14 +1,13 @@
 {% extends "base.html" %}
+{% set names = {"logistic_regression": "Régression logistique", "neural_network": "Réseau de neurones"} %}
+{% set is_test = report.dataset == "test" %}
+{% macro percent(value) %}{{ ("%.1f"|format(value * 100)).replace(".", ",") }} %{% endmacro %}
+{% macro decimal(value) %}{{ ("%.3f"|format(value)).replace(".", ",") }}{% endmacro %}
+{% macro precision(scores) %}{% if scores.alerts > 0 %}{{ percent(scores.precision) }}{% else %}Non définie{% endif %}{% endmacro %}
 
-{% block title %}Telco — Comparaison des modèles{% endblock %}
+{% block title %}Telco — {{ "Test des deux modèles" if is_test else "Validation des deux modèles" }}{% endblock %}
 
 {% block content %}
-
-{% set names = {
-    "logistic_regression": "Régression logistique",
-    "neural_network": "Réseau de neurones"
-} %}
-
 <style>
     body {
         background: #eef2ff;
@@ -61,230 +60,137 @@
         font-size: .85rem;
     }
 </style>
-
 <div class="comparison">
-
-    <a href="{{ url_for('main.home') }}"
-       class="btn btn-outline-secondary mb-3">
-        Retour au dashboard
-    </a>
+    <nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Pages des modèles">
+        <a href="{{ url_for('main.home') }}" class="btn btn-outline-secondary">Dashboard</a>
+        <a href="{{ url_for('main.model_validation') }}" class="btn {{ 'btn-outline-primary' if is_test else 'btn-primary' }}">Validation des deux modèles</a>
+        <a href="{{ url_for('main.model_test') }}" class="btn {{ 'btn-primary' if is_test else 'btn-outline-primary' }}">Test des deux modèles</a>
+    </nav>
 
     <header class="banner">
-        <h1 class="fw-bold">Comparaison des modèles</h1>
-
-        <p>
-            Régression logistique et réseau de neurones,
-            évalués sur les mêmes clients de validation.
-        </p>
+        <h1 class="fw-bold">{{ "Évaluation des deux modèles sur le test" if is_test else "Validation et comparaison des deux modèles" }}</h1>
+        <p>Régression logistique et réseau de neurones, mêmes variables et mêmes clients d’évaluation.</p>
     </header>
 
+    {% if is_test %}
+    <div class="alert alert-warning mt-3" role="note">
+        <strong>Comparaison complémentaire sur un test déjà consulté.</strong>
+        Les seuils ci-dessous viennent uniquement de la validation ; ils ne sont pas réajustés ici.
+        Le réseau a été ajouté après l’évaluation initiale de la régression :
+        ses résultats sur ce test ne constituent pas une nouvelle évaluation indépendante.
+    </div>
+    {% endif %}
+
     <section class="panel">
-        <h2 class="h4">Protocole de comparaison</h2>
-
+        <h2 class="h4">Protocole commun</h2>
         <div class="row g-3 mt-1">
-            <div class="col-md-4">
-                <div class="text-muted">Groupe d’entraînement</div>
-                <strong class="fs-3">{{ report.train_size }}</strong>
-            </div>
-
-            <div class="col-md-4">
-                <div class="text-muted">Validation externe</div>
-                <strong class="fs-3">
-                    {{ report.validation_size }}
-                </strong>
-            </div>
-
-            <div class="col-md-4">
-                <div class="text-muted">Couches cachées du réseau</div>
-                <span class="network-label">
-                    {{ report.network.hidden_layers | join(" → ") }}
-                    neurones
-                </span>
-            </div>
+            <div class="col-md-4"><div class="text-muted">Entraînement externe</div><strong class="fs-3">{{ report.train_size }}</strong></div>
+            <div class="col-md-4"><div class="text-muted">{{ "Clients de test" if is_test else "Clients de validation" }}</div><strong class="fs-3">{{ report.test_size if is_test else report.validation_size }}</strong></div>
+            <div class="col-md-4"><div class="text-muted">Couches cachées du réseau</div><span class="network-label">{{ report.network.hidden_layers|join(" → ") }} neurones</span></div>
         </div>
-
-        <p class="text-muted mt-3 mb-1">
-            Variables communes : ancienneté, montant mensuel
-            et type de contrat.
-        </p>
-
-        <p class="text-muted mb-0">
-            Le réseau utilise ReLU dans les couches cachées
-            et une sigmoïde en sortie. L’arrêt anticipé utilise
-            un sous-groupe prélevé uniquement dans l’entraînement.
-            Nombre d’itérations réalisées :
-            {{ report.network.iterations }}.
-        </p>
+        <p class="text-muted mt-3 mb-1">Variables : ancienneté, montant mensuel et contrat. Les prétraitements sont ajustés dans le groupe d’entraînement.</p>
+        <p class="text-muted mb-0">Le réseau réserve 15 % de ce groupe à l’arrêt anticipé et utilise ReLU dans les couches cachées, puis une sigmoïde en sortie. Itérations réalisées : {{ report.network.iterations }}.</p>
     </section>
 
-    <!-- Comparaison au même seuil -->
     <section class="panel">
-        <h2 class="h4">Comparaison au seuil commun de 0,50</h2>
-
-        <p class="text-muted">
-            Les deux modèles utilisent le même seuil.
-            Leurs scores peuvent toutefois être calibrés différemment.
-        </p>
-
+        <h2 class="h4">Même seuil initial : 0,50</h2>
+        <p class="text-muted">Mêmes mesures pour les deux modèles et la référence qui prédit toujours la classe majoritaire de l’entraînement.</p>
         <div class="table-responsive">
             <table class="table align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col">Modèle</th>
-                        <th scope="col">Exactitude</th>
-                        <th scope="col">Précision</th>
-                        <th scope="col">Rappel</th>
-                        <th scope="col">F1</th>
-                        <th scope="col">Aire ROC</th>
-                    </tr>
-                </thead>
-
+                <thead><tr><th scope="col">Modèle</th><th scope="col">Exactitude</th><th scope="col">Précision</th><th scope="col">Rappel</th><th scope="col">F1</th><th scope="col">Aire ROC</th><th scope="col">Alertes</th></tr></thead>
                 <tbody>
                     {% for name, result in report.models.items() %}
                     {% set scores = result.metrics_at_050 %}
-
-                    <tr>
-                        <th scope="row">{{ names[name] }}</th>
-
-                        <td>
-                            {{ ("%.1f"|format(
-                                scores.accuracy * 100
-                            )).replace(".", ",") }} %
-                        </td>
-
-                        <td>
-                            {{ ("%.1f"|format(
-                                scores.precision * 100
-                            )).replace(".", ",") }} %
-                        </td>
-
-                        <td>
-                            {{ ("%.1f"|format(
-                                scores.recall * 100
-                            )).replace(".", ",") }} %
-                        </td>
-
-                        <td>
-                            {{ ("%.3f"|format(
-                                scores.f1
-                            )).replace(".", ",") }}
-                        </td>
-
-                        <td>
-                            {{ ("%.3f"|format(
-                                scores.roc_auc
-                            )).replace(".", ",") }}
-                        </td>
-                    </tr>
-
+                    <tr><th scope="row">{{ names[name] }}</th><td>{{ percent(scores.accuracy) }}</td><td>{{ precision(scores) }}</td><td>{{ percent(scores.recall) }}</td><td>{{ decimal(scores.f1) }}</td><td>{{ decimal(scores.roc_auc) }}</td><td>{{ scores.alerts }}</td></tr>
                     {% endfor %}
+                    {% set scores = report.baseline %}
+                    <tr class="table-light"><th scope="row">Référence constante</th><td>{{ percent(scores.accuracy) }}</td><td>{{ precision(scores) }}</td><td>{{ percent(scores.recall) }}</td><td>{{ decimal(scores.f1) }}</td><td>{{ decimal(scores.roc_auc) }}</td><td>{{ scores.alerts }}</td></tr>
                 </tbody>
             </table>
         </div>
+        <p class="small text-muted mb-0">Sans alerte, la précision est indéfinie. Un seuil commun ne garantit ni un même volume d’alertes ni une calibration identique des scores.</p>
     </section>
 
-    <!-- Comparaison selon l'objectif du client -->
+    {% if not is_test %}
     <section class="panel">
-        <h2 class="h4">Comparaison sous capacité limitée</h2>
-
-        <p class="text-muted">
-            Chaque modèle sélectionne son seuil parmi les cinq
-            valeurs comparées, en maximisant le rappel avec
-            au maximum
-            {{ "%.0f"|format(report.capacity_rate * 100) }} %
-            de contacts sur la validation.
-        </p>
-
+        <h2 class="h4">Comparaison des cinq seuils sur la validation</h2>
+        <p class="text-muted">Capacité hypothétique : au maximum {{ "%.0f"|format(report.capacity_rate * 100) }} % des clients, soit {{ report.models.logistic_regression.capacity_comparison.max_contacts }} contacts. Pour chaque modèle, la règle maximise le rappel parmi les seuils admissibles.</p>
         <div class="table-responsive">
             <table class="table align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col">Modèle</th>
-                        <th scope="col">Seuil</th>
-                        <th scope="col">Alertes / plafond</th>
-                        <th scope="col">Précision</th>
-                        <th scope="col">Rappel</th>
-                        <th scope="col">Fausses alertes</th>
-                        <th scope="col">Départs manqués</th>
-                    </tr>
-                </thead>
-
+                <thead><tr><th scope="col">Modèle</th><th scope="col">Seuil</th><th scope="col">Alertes</th><th scope="col">Précision</th><th scope="col">Rappel</th><th scope="col">F1</th><th scope="col">Fausses alertes</th><th scope="col">Départs manqués</th><th scope="col">Capacité</th></tr></thead>
                 <tbody>
-                    {% for name, result in report.models.items() %}
-                    {% set comparison = result.capacity_comparison %}
-                    {% set selected = comparison.selected %}
-
-                    <tr>
+                {% for name, result in report.models.items() %}
+                    {% set choice = result.capacity_comparison.selected %}
+                    {% for row in result.capacity_comparison.thresholds %}
+                    <tr {% if choice is not none and row.threshold == choice.threshold %}class="table-primary"{% endif %}>
                         <th scope="row">{{ names[name] }}</th>
-
-                        {% if selected is not none %}
-
-                        <td>
-                            {{ ("%.2f"|format(
-                                selected.threshold
-                            )).replace(".", ",") }}
-                        </td>
-
-                        <td>
-                            {{ selected.alerts }}
-                            / {{ comparison.max_contacts }}
-                        </td>
-
-                        <td>
-                            {% if selected.alerts > 0 %}
-                                {{ ("%.1f"|format(
-                                    selected.precision * 100
-                                )).replace(".", ",") }} %
-                            {% else %}
-                                Non définie
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {{ ("%.1f"|format(
-                                selected.recall * 100
-                            )).replace(".", ",") }} %
-                        </td>
-
-                        <td>{{ selected.false_positives }}</td>
-                        <td>{{ selected.false_negatives }}</td>
-
-                        {% else %}
-
-                        <td colspan="6">
-                            Aucun des seuils comparés ne respecte
-                            la capacité.
-                        </td>
-
-                        {% endif %}
+                        <td>{{ ("%.2f"|format(row.threshold)).replace(".", ",") }}{% if choice is not none and row.threshold == choice.threshold %}<span class="d-block small">Retenu</span>{% endif %}</td>
+                        <td>{{ row.alerts }}</td><td>{{ precision(row) }}</td><td>{{ percent(row.recall) }}</td><td>{{ decimal(row.f1) }}</td><td>{{ row.false_positives }}</td><td>{{ row.false_negatives }}</td><td>{{ "Respectée" if row.capacity_respected else "Dépassée" }}</td>
                     </tr>
-
                     {% endfor %}
+                {% endfor %}
                 </tbody>
             </table>
         </div>
+        <p class="small text-muted mb-0">Les lignes bleues correspondent aux seuils retenus sur la validation, distincts du seuil initial de 0,50. Aucun résultat du test ne sert à les choisir.</p>
+    </section>
+    {% endif %}
 
-        <p class="small text-muted mb-0">
-            La capacité maximale est identique, mais le nombre
-            de contacts effectivement proposé peut différer.
-            Un seuil fixe ne garantit pas ce plafond sur un autre groupe.
-        </p>
+    <section class="panel">
+        <h2 class="h4">{{ "Seuils de validation appliqués au test" if is_test else "Résultats aux seuils retenus sur la validation" }}</h2>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th scope="col">Modèle</th><th scope="col">Seuil</th><th scope="col">Alertes / plafond</th><th scope="col">Part contactée</th><th scope="col">Exactitude</th><th scope="col">Précision</th><th scope="col">Rappel</th><th scope="col">F1</th><th scope="col">Aire ROC</th><th scope="col">Capacité</th></tr></thead>
+                <tbody>
+                {% for name, result in report.models.items() %}
+                    {% set scores = result.capacity_comparison.selected %}
+                    <tr><th scope="row">{{ names[name] }}</th>
+                    {% if scores is not none %}
+                        <td>{{ ("%.2f"|format(scores.threshold)).replace(".", ",") }}</td><td>{{ scores.alerts }} / {{ scores.max_contacts }}</td><td>{{ percent(scores.contact_rate) }}</td><td>{{ percent(scores.accuracy) }}</td><td>{{ precision(scores) }}</td><td>{{ percent(scores.recall) }}</td><td>{{ decimal(scores.f1) }}</td><td>{{ decimal(scores.roc_auc) }}</td><td>{{ "Respectée sur ce groupe" if scores.capacity_respected else "Dépassée sur ce groupe" }}</td>
+                    {% else %}
+                        <td colspan="9">Aucun des seuils comparés ne respecte la capacité sur la validation ; aucune décision retenue.</td>
+                    {% endif %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted mb-0">Même plafond, mais volumes de contacts éventuellement différents. Les 35 % sont une hypothèse de démonstration ; un seuil fixe ne garantit pas ce quota sur un nouveau groupe.</p>
     </section>
 
     <section class="panel">
-        <h2 class="h5">Statut de cette comparaison</h2>
-
-        <p class="text-muted mb-0">
-            Cette comparaison est exploratoire : plusieurs architectures
-            ont été examinées sur la même validation.
-            Elle n’utilise pas les clients du test pour calculer
-            les mesures présentées ici. Les résultats historiques
-            du test final de la régression logistique restent inchangés.
-            Ces écarts ne démontrent pas une supériorité générale
-            d’un modèle.
-        </p>
+        <h2 class="h4">Matrices de confusion — {{ "test" if is_test else "validation" }}</h2>
+        <p class="text-muted">Pour les deux modèles, les matrices utilisent leur seuil retenu sur la validation. Lignes = observations ; colonnes = prédictions.</p>
+        <div class="row g-4">
+        {% for name, result in report.models.items() %}
+            {% set scores = result.capacity_comparison.selected %}
+            <article class="col-lg-6">
+                <h3 class="h5">{{ names[name] }}</h3>
+                {% if scores is not none %}
+                    {% set matrix = scores.confusion_matrix %}
+                    <p class="small text-muted">Seuil {{ ("%.2f"|format(scores.threshold)).replace(".", ",") }}</p>
+                    <div class="table-responsive">
+                        <table class="table table-bordered text-center align-middle">
+                            <thead><tr><th scope="col">Observation / Prédiction</th><th scope="col">Sans départ</th><th scope="col">Départ</th></tr></thead>
+                            <tbody>
+                                <tr><th scope="row">Sans départ observé</th><td class="table-success">{{ matrix[0][0] }}<div class="small">Vrais négatifs</div></td><td class="table-warning">{{ matrix[0][1] }}<div class="small">Fausses alertes</div></td></tr>
+                                <tr><th scope="row">Départ observé</th><td class="table-danger">{{ matrix[1][0] }}<div class="small">Départs manqués</div></td><td class="table-success">{{ matrix[1][1] }}<div class="small">Départs détectés</div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small">{{ scores.true_positives }} départs détectés · {{ scores.false_positives }} fausses alertes · {{ scores.false_negatives }} départs manqués.</p>
+                {% else %}
+                    <p>Aucun seuil admissible retenu sur la validation.</p>
+                {% endif %}
+            </article>
+        {% endfor %}
+        </div>
     </section>
 
+    <section class="panel">
+        <h2 class="h5">Portée des résultats</h2>
+        <p class="text-muted">Données pédagogiques fictives. Plusieurs architectures ont été examinées sur la validation. Le réseau a été ajouté après consultation du test initial : cette comparaison ne constitue pas une nouvelle validation indépendante.</p>
+        <p class="text-muted mb-0">La précision décrit la part de départs observés parmi les alertes ; le rappel décrit la part des départs détectés. L’aire ROC mesure le classement, pas la calibration. Aucun de ces résultats ne prouve qu’un contact commercial empêcherait un départ.</p>
+    </section>
 </div>
-
 {% endblock %}

@@ -18,12 +18,7 @@ from app.services.dashboard_service import (
     get_tenure_distribution,
 )
 
-from app.services.model_service import (
-    get_validation_report,
-    get_test_report,
-)
-
-from app.services.comparison_service import get_model_comparison
+from app.services.comparison_service import get_model_comparison, get_test_comparison
 
 @main_bp.route("/")
 def home():
@@ -60,8 +55,8 @@ def correlation_vars():
 @main_bp.route("/validation")
 def model_validation():
     return render_template(
-        "model_validation.html",
-        report=get_validation_report(),
+        "model_comparison.html",
+        report=get_model_comparison(),
     )
 
 
@@ -69,8 +64,8 @@ def model_validation():
 @main_bp.route("/test-final")
 def model_test():
     return render_template(
-        "model_test.html",
-        report=get_test_report(),
+        "model_comparison.html",
+        report=get_test_comparison(),
     )
 
 

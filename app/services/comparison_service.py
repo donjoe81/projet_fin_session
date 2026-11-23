@@ -1,5 +1,7 @@
 from functools import lru_cache
 
+import numpy as np
+
 from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
@@ -18,30 +20,32 @@ THRESHOLDS = [0.20, 0.35, 0.50, 0.65, 0.80]
 CAPACITY_RATE = 0.35
 
 
+def evaluate_at_threshold(y_true, probabilities, threshold):
+    """Même calcul pour chaque modèle, sur validation ou test."""
+    predictions = (np.asarray(probabilities) >= threshold).astype(int)
+    scores = compute_metrics(y_true, predictions, probabilities)
+    matrix = scores["confusion_matrix"]
+    alerts = int(predictions.sum())
+    max_contacts = int(len(y_true) * CAPACITY_RATE)
+    return {
+        **scores,
+        "threshold": float(threshold),
+        "alerts": alerts,
+        "contact_rate": alerts / len(y_true),
+        "max_contacts": max_contacts,
+        "capacity_respected": alerts <= max_contacts,
+        "false_positives": matrix[0][1],
+        "false_negatives": matrix[1][0],
+        "true_positives": matrix[1][1],
+    }
+
+
 def compare_thresholds(y_true, probabilities):
     """Compare les seuils uniquement sur la validation."""
     rows = []
 
     for threshold in THRESHOLDS:
-        predictions = (probabilities >= threshold).astype(int)
-
-        scores = compute_metrics(
-            y_true,
-            predictions,
-            probabilities,
-        )
-
-        matrix = scores["confusion_matrix"]
-
-        rows.append({
-            "threshold": threshold,
-            "alerts": int(predictions.sum()),
-            "precision": scores["precision"],
-            "recall": scores["recall"],
-            "f1": scores["f1"],
-            "false_positives": matrix[0][1],
-            "false_negatives": matrix[1][0],
-        })
+        rows.append(evaluate_at_threshold(y_true, probabilities, threshold))
 
     max_contacts = int(len(y_true) * CAPACITY_RATE)
 
@@ -70,15 +74,15 @@ def compare_thresholds(y_true, probabilities):
 
 
 @lru_cache(maxsize=1)
-def get_model_comparison():
+def _train_comparison():
     df = get_data_frame()
 
     X = df[FEATURES]
     y = df["Churn"].map({"No": 0, "Yes": 1})
 
     # Même séparation que le modèle initial.
-    # Le groupe de test est écarté sans être évalué.
-    X_dev, _, y_dev, _ = train_test_split(
+    # Le test n'est évalué que par get_test_comparison(), sans réglage.
+    X_dev, X_test, y_dev, y_test = train_test_split(
         X,
         y,
         test_size=0.20,
@@ -133,13 +137,7 @@ def get_model_comparison():
 
     for name, model in models.items():
         probabilities = model.predict_proba(X_val)[:, 1]
-        predictions = (probabilities >= 0.50).astype(int)
-
-        scores = compute_metrics(
-            y_val,
-            predictions,
-            probabilities,
-        )
+        scores = evaluate_at_threshold(y_val, probabilities, 0.50)
 
         results[name] = {
             "metrics_at_050": scores,
@@ -151,10 +149,12 @@ def get_model_comparison():
 
     classifier = neural_model.named_steps["classifier"]
 
-    return {
+    report = {
         "evaluation": "Validation complémentaire",
         "train_size": len(X_train),
         "validation_size": len(X_val),
+        "test_size": len(X_test),
+        "dataset": "validation",
         "features": FEATURES,
         "capacity_rate": CAPACITY_RATE,
         "network": {
@@ -164,4 +164,45 @@ def get_model_comparison():
             "iterations": int(classifier.n_iter_),
         },
         "models": results,
+        "baseline": evaluate_at_threshold(
+            y_val, np.full(len(y_val), float(y_train.mode().iloc[0])), 0.50
+        ),
+    }
+    return report, models, X_test, y_test, int(y_train.mode().iloc[0])
+
+
+def get_model_comparison():
+    """Rapport de validation ; aucun score du test n'est consulté ici."""
+    return _train_comparison()[0]
+
+
+@lru_cache(maxsize=1)
+def get_test_comparison():
+    """Évaluation des deux modèles avec les seuils choisis sur validation.
+
+    Le test a déjà été consulté dans le projet : cette comparaison est
+    complémentaire et ne constitue pas une nouvelle évaluation indépendante.
+    """
+    validation, models, X_test, y_test, majority = _train_comparison()
+    results = {}
+    for name, model in models.items():
+        probabilities = model.predict_proba(X_test)[:, 1]
+        choice = validation["models"][name]["capacity_comparison"]["selected"]
+        selected = None if choice is None else evaluate_at_threshold(
+            y_test, probabilities, choice["threshold"]
+        )
+        results[name] = {
+            "metrics_at_050": evaluate_at_threshold(y_test, probabilities, 0.50),
+            "capacity_comparison": {
+                "max_contacts": int(len(y_test) * CAPACITY_RATE),
+                "thresholds": [],
+                "selected": selected,
+            },
+        }
+    return {
+        **validation,
+        "evaluation": "Comparaison complémentaire sur le test déjà consulté",
+        "dataset": "test",
+        "models": results,
+        "baseline": evaluate_at_threshold(y_test, np.full(len(y_test), float(majority)), 0.50),
     }
